@@ -1,0 +1,287 @@
+import cv2
+import numpy as np
+import sys
+from pathlib import Path
+from typing import Tuple, Optional
+import json
+
+INPUT_FOLDER = sys.argv[1]
+OUTPUT_FOLDER = sys.argv[2]
+JSON_OUTPUT = [] # append per action taken for each image
+
+## TODO:
+## När bilder är mindre än x - x skriv ut det i terminalen -> till fil och sortera bort dem till en annan mapp. Lägg till mer statustext här, man kan kolla om bilderna är 1:1 eller så.
+##
+
+## when in doubt change the blur - xx
+
+def detect_outer_frame(image: np.ndarray, image_name: str) -> Optional[Tuple[int, int, int, int]]:
+    """
+    Detect the four corners of a map by finding the corner marks.
+    
+    Returns:
+        Tuple of (x_min, y_min, x_max, y_max) coordinates, or None if detection fails
+    """
+    # Convert to grayscale
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    
+    # Apply slight blur to reduce noise
+    blurred = gray
+    #blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+    blurred = cv2.blur(blurred,(5,5))
+    #blurred = cv2.blur(blurred,(5,5))
+
+    #blur level matters allllot 
+    # implement different levels of it and checks if the image is likley the wrong size, if it is change the blur level. 
+    # the inner frame seems to like more blur, the outer less.
+    
+    # Detect edges (corner marks are typically high-contrast)
+    edges = cv2.Canny(blurred, 50, 120)
+    cv2.imwrite(OUTPUT_FOLDER + '\\edges.jpg', edges)
+    
+    # Detect lines using Hough Line Transform
+    lines = cv2.HoughLinesP(edges, 1, np.pi/180, 50, minLineLength=200, maxLineGap=0)
+    
+    # Used to find the largest rectangle in the image
+    max_area = 0
+    rectangle = None
+    image2 = image.copy()
+    contours,_ = cv2.findContours(edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    for cnt in contours:
+        area = cv2.contourArea(cnt)
+        epsilon = 0.02 * cv2.arcLength(cnt, True)
+        approx = cv2.approxPolyDP(cnt, epsilon, True)
+
+        if len(approx) == 4:
+            x, y, w, h = cv2.boundingRect(approx)
+            cv2.rectangle(image2, (x, y), (x + w, y + h), (0, 255, 255), 2)
+            if area > max_area:
+                max_area = area
+                rectangle = approx
+ 
+    if rectangle is not None:
+        x, y, w, h = cv2.boundingRect(rectangle)
+        cv2.rectangle(image2, (x, y), (x + w, y + h), (0, 255, 0), 3)
+        cv2.imwrite(OUTPUT_FOLDER + '\\rect.jpg', image2)
+        JSON_OUTPUT.append({
+            'name': image_name,
+            'status':'outer rectangle',
+            'x': x,
+            'y': y,
+            'max-x': x+w,
+            'max-y': y+h,
+            })
+        return (x+10,y+10,x+w-10,y+h-10)
+    
+    print("")
+    print("---------------")
+    print(image_name)
+    print("outer rectangle not found, using lines to approximate")
+    print("---------------")
+    if lines is None:
+        return None
+    
+    # Separate horizontal and vertical lines
+    horizontal_lines = []
+    vertical_lines = []
+    
+    for line in lines:
+        x1, y1, x2, y2 = line[0]
+        angle = np.abs(np.arctan2(y2 - y1, x2 - x1) * 180 / np.pi)
+        
+        # Horizontal lines: ~0° or ~180°
+        if angle < 10 or angle > 170:
+            horizontal_lines.append((min(y1, y2), max(y1, y2), min(x1, x2), max(x1, x2)))
+        # Vertical lines: ~90°
+        elif 80 < angle < 100:
+            vertical_lines.append((min(x1, x2), max(x1, x2), min(y1, y2), max(y1, y2)))
+
+    if not horizontal_lines or not vertical_lines:
+        print(horizontal_lines)
+        print(vertical_lines) 
+        return None
+    
+    # Find bounding box from detected lines
+    y_coords = [line[0] for line in horizontal_lines] + [line[1] for line in horizontal_lines]
+    x_coords = [line[0] for line in vertical_lines] + [line[1] for line in vertical_lines]
+   
+    if not x_coords or not y_coords:
+        return None
+    
+    # Use clustering to find the actual map boundaries (reject outliers)
+    y_sorted = sorted(y_coords)
+    x_sorted = sorted(x_coords)
+    
+    y_min = y_sorted[len(y_sorted) // 4]  # Lower quartile
+    y_max = y_sorted[3 * len(y_sorted) // 4]  # Upper quartile
+    x_min = x_sorted[len(x_sorted) // 4]
+    x_max = x_sorted[3 * len(x_sorted) // 4]
+    
+    return (x_min, y_min, x_max, y_max)
+
+def detect_inner_frame(image: np.ndarray) -> Optional[Tuple[int, int, int, int]]:
+     # Convert to grayscale
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    
+    # Apply slight blur to reduce noise
+    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+    blurred = cv2.blur(blurred,(5,5))
+    blurred = cv2.blur(blurred,(5,5))
+    
+    # Detect edges (corner marks are typically high-contrast)
+    edges = cv2.Canny(blurred, 100, 120)
+    cv2.imwrite(OUTPUT_FOLDER + '\\edges2.png', edges)
+    
+    # Detect lines using Hough Line Transform
+    lines = cv2.HoughLinesP(edges, 1, np.pi/180, 50, minLineLength=200, maxLineGap=4000)
+
+    if lines is None:
+        return None
+    
+    # Separate horizontal and vertical lines
+    horizontal_lines = []
+    vertical_lines = []
+    
+    for line in lines:
+        x1, y1, x2, y2 = line[0]
+        angle = np.abs(np.arctan2(y2 - y1, x2 - x1) * 180 / np.pi)
+        
+        # Horizontal lines: ~0° or ~180°
+        if angle < 10 or angle > 170:
+            horizontal_lines.append((min(y1, y2), max(y1, y2), min(x1, x2), max(x1, x2)))
+        # Vertical lines: ~90°
+        elif 80 < angle < 100:
+            vertical_lines.append((min(x1, x2), max(x1, x2), min(y1, y2), max(y1, y2)))
+
+    if not horizontal_lines or not vertical_lines:
+        print(horizontal_lines)
+        print(vertical_lines) 
+        return None
+    
+    # Find bounding box from detected lines
+    y_coords = [line[0] for line in horizontal_lines] + [line[1] for line in horizontal_lines]
+    x_coords = [line[0] for line in vertical_lines] + [line[1] for line in vertical_lines]
+   
+    if not x_coords or not y_coords:
+        return None
+    
+    # Use clustering to find the actual map boundaries (reject outliers)
+    y_sorted = sorted(y_coords)
+    x_sorted = sorted(x_coords)
+    
+    y_min = y_sorted[len(y_sorted) // 4]  # Lower quartile
+    y_max = y_sorted[3 * len(y_sorted) // 4]  # Upper quartile
+    x_min = x_sorted[len(x_sorted) // 4]
+    x_max = x_sorted[3 * len(x_sorted) // 4]
+    
+    return (x_min, y_min, x_max, y_max)
+
+def crop_map_image(image_path: str, image_name: str, output_path: str, padding: int = 0) -> bool:
+    """
+    Load image, detect map corners, and save cropped version.
+    
+    Args:
+        image_path: Path to input image
+        output_path: Path to save cropped image
+        padding: Extra pixels to keep around the detected area
+    
+    Returns:
+        True if successful, False otherwise
+    """
+    try:
+        # Load image
+        image = cv2.imread(image_path)
+        if image is None:
+            print(f"Failed to load {image_path}")
+            return False
+        
+        # Detect corners
+        corners = detect_outer_frame(image, image_name)
+        if corners is None:
+            print(f"Could not detect map corners in {image_path}")
+            return False
+        
+        x_min, y_min, x_max, y_max = corners
+        
+        # Apply padding
+        x_min = max(0, x_min - padding)
+        y_min = max(0, y_min - padding)
+        x_max = min(image.shape[1], x_max + padding)
+        y_max = min(image.shape[0], y_max + padding)
+        
+        # Crop image
+        cropped_outer = image[y_min:y_max, x_min:x_max]
+        print(f"Cropped outer {image_path}")
+        # Save result
+        cv2.imwrite(output_path+".outer.jpg", cropped_outer)
+        if cropped_outer is None:
+            print(f"Cropped outer is none")
+            return False
+        
+        corners_inner = detect_inner_frame(cropped_outer)
+        if corners_inner is None:
+            print(f"Could not detect map corners in {image_path} - outer")
+            return False
+        
+        x_min, y_min, x_max, y_max = corners_inner
+        
+        # Apply padding
+        x_min = max(0, x_min - padding)
+        y_min = max(0, y_min - padding)
+        x_max = min(cropped_outer.shape[1], x_max + padding)
+        y_max = min(cropped_outer.shape[0], y_max + padding)
+        cropped_inner = cropped_outer[y_min:y_max, x_min:x_max]
+        cv2.imwrite(output_path, cropped_inner)
+
+        print("")
+        print(f"Successfully cropped: {image_path} → {output_path}")
+        return True
+    
+    except Exception as e:
+        print(f"Error processing {image_path}: {e}")
+        return False
+
+def batch_process_maps(input_dir: str, output_dir: str, padding: int = 0):
+    """
+    Process all images in a directory.
+    
+    Args:
+        input_dir: Directory containing map images
+        output_dir: Directory to save cropped maps
+        padding: Extra pixels to keep around the detected area
+    """
+    input_path = Path(input_dir)
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+    
+    # Process all common image formats
+    image_files = list(input_path.glob('*.jpg')) + list(input_path.glob('*.png')) + \
+                  list(input_path.glob('*.tif'))
+    
+    print(f"Found {len(image_files)} images to process")
+    if len(image_files) == 0:
+        sys.exit(1)
+    
+    successful = 0
+    for img_file in image_files:
+        output_file = output_path / img_file.name
+        if crop_map_image(str(img_file), img_file.name, str(output_file), padding):
+            successful += 1
+    
+    print(f"Successfully processed {successful}/{len(image_files)} images")
+
+# Usage
+if __name__ == "__main__":
+    # Single image
+    #crop_map_image("map.jpg", "map_cropped.jpg", padding=5)
+    
+    # Batch processing
+    #batch_process_maps("./input_maps", "./output_maps", padding=5)
+    #list("")
+    if len(sys.argv) < 3:
+        print("Usage: python program input-folder output-folder")
+        sys.exit(1)
+    batch_process_maps(INPUT_FOLDER, OUTPUT_FOLDER, 0)
+    print("writing json")
+    with open(OUTPUT_FOLDER+'\\info.json', 'w') as f:
+        json.dump(JSON_OUTPUT, f, indent=4)
