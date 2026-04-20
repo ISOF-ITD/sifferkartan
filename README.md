@@ -10,3 +10,11 @@ Pre-reqs: Python3; gdal, cv2(openCV), numpy for python
 | input-folder | output-folder | json-input |
 |---|---|---|
 | Kartfiler i formatet jpg eller tif. | Här hamnar resultaten av skripten. | Används vid georeference, innehåller koordinater för kartfilerna i input-folder |
+
+
+# Resultat
+Exempel:
+
+| input | output |
+|---|---|
+| ![output](/examples/4_13D1g.jpg) | ![output1](/examples/4_13D1g-out.jpg) |
