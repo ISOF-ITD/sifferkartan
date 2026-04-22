@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 import sys
+from PIL import Image
 from pathlib import Path
 from typing import Tuple, Optional
 import json
@@ -15,7 +16,45 @@ JSON_OUTPUT = [] # append per action taken for each image
 
 ## when in doubt change the blur - xx
 
-def detect_outer_frame(image: np.ndarray, image_name: str) -> Optional[Tuple[int, int, int, int]]:
+def get_dominant_color(image_path):
+    """
+    Get the most dominant color in an image.
+    Used for classifying what type of map cut technique to use.
+    
+    Args:
+        image_path (str): Path to the image file
+        
+    Returns:
+        tuple: RGB color tuple (r, g, b)
+    """
+    # Open the image
+    img = Image.open(image_path)
+    
+    # Resize for faster processing (optional but recommended)
+    img = img.resize((150, 150))
+    
+    # Convert to RGB if necessary (handles RGBA, grayscale, etc.)
+    if img.mode != 'RGB':
+        img = img.convert('RGB')
+    
+    # Convert image to numpy array
+    img_array = np.array(img)
+    
+    # Reshape to 2D array (pixels × 3 color channels)
+    pixels = img_array.reshape(-1, 3)
+    
+    # Find the most common color
+    dominant_color = pixels.mean(axis=0).astype(int)
+    
+    return tuple(dominant_color)
+
+def rgb_to_hex(rgb):
+    """Convert RGB tuple to hex color string."""
+    r, g, b = rgb
+    return f'#{r:02X}{g:02X}{b:02X}'
+
+
+def detect_outer_frame(image: np.ndarray, image_name: str, image_color: str) -> Optional[Tuple[int, int, int, int]]:
     """
     Detect the four corners of a map by finding the corner marks.
     
@@ -24,22 +63,41 @@ def detect_outer_frame(image: np.ndarray, image_name: str) -> Optional[Tuple[int
     """
     # Convert to grayscale
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    
-    # Apply slight blur to reduce noise
-    blurred = gray
-    #blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-    blurred = cv2.blur(blurred,(5,5))
-    #blurred = cv2.blur(blurred,(5,5))
+    if image_color == "pink":
+        # Apply slight blur to reduce noise
+        blurred = gray
+        #blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+        #blurred = cv2.blur(blurred,(5,5))
+        #blurred = cv2.blur(blurred,(5,5))
 
-    #blur level matters allllot 
-    # implement different levels of it and checks if the image is likley the wrong size, if it is change the blur level. 
-    # the inner frame seems to like more blur, the outer less.
+        #blur level matters allllot 
+        # implement different levels of it and checks if the image is likley the wrong size, if it is change the blur level. 
+        # the inner frame seems to like more blur, the outer less.
+        
+        # Detect edges (corner marks are typically high-contrast)
+        edges = cv2.Canny(blurred, 50, 120)
+        
+        # Detect lines using Hough Line Transform
+        lines = cv2.HoughLinesP(edges, 1, np.pi/180, 50, minLineLength=200, maxLineGap=0)
+    elif image_color == "green":
+        # Apply slight blur to reduce noise
+        blurred = gray
+        #blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+        blurred = cv2.blur(blurred,(5,5))
+        #blurred = cv2.blur(blurred,(5,5))
+
+        #blur level matters allllot 
+        # implement different levels of it and checks if the image is likley the wrong size, if it is change the blur level. 
+        # the inner frame seems to like more blur, the outer less.
+        
+        # Detect edges (corner marks are typically high-contrast)
+        edges = cv2.Canny(blurred, 50, 120)
+        
+        # Detect lines using Hough Line Transform
+        lines = cv2.HoughLinesP(edges, 1, np.pi/180, 50, minLineLength=200, maxLineGap=0)
+    else:
+        return
     
-    # Detect edges (corner marks are typically high-contrast)
-    edges = cv2.Canny(blurred, 50, 120)
-    
-    # Detect lines using Hough Line Transform
-    lines = cv2.HoughLinesP(edges, 1, np.pi/180, 50, minLineLength=200, maxLineGap=0)
     
     # Used to find the largest rectangle in the image
     max_area = 0
@@ -60,7 +118,7 @@ def detect_outer_frame(image: np.ndarray, image_name: str) -> Optional[Tuple[int
  
     if rectangle is not None:
         x, y, w, h = cv2.boundingRect(rectangle)
-        if h < 2000 or w < 2000:
+        if h < 2000 or w < 2000: # 4000px for tif, 2000px for jpg
             cv2.rectangle(image2, (x, y), (x + w, y + h), (0, 255, 0), 3)
             cv2.imwrite(OUTPUT_FOLDER + f'\\others\\rect-{image_name}.jpg', image2)
             print("")
@@ -123,7 +181,7 @@ def detect_outer_frame(image: np.ndarray, image_name: str) -> Optional[Tuple[int
     
     return (x_min, y_min, x_max, y_max)
 
-def detect_inner_frame(image: np.ndarray, image_name:str) -> Optional[Tuple[int, int, int, int]]:
+def detect_inner_frame(image: np.ndarray, image_name:str, image_color: str) -> Optional[Tuple[int, int, int, int]]:
      # Convert to grayscale
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     
@@ -193,6 +251,20 @@ def crop_map_image(image_path: str, image_name: str, output_path: str, padding: 
         True if successful, False otherwise
     """
     try:
+        dominant = get_dominant_color(image_path)
+        color=""
+        print(f"Image: {image_name}")
+        print(f"Dominant color (RGB): {dominant[0]},{dominant[1]},{dominant[2]}")
+        #print(f"Hex: {rgb_to_hex(dominant)}")
+        if dominant[0] > 200 and dominant[1] > 200:
+            print("pink dominant")
+            color = "pink"
+        elif 170 < dominant[0] < 200 and dominant[1] < 200:
+            print("green dominant")
+            color = "green"
+        else:
+            print("unknown color range, check image")
+            sys.exit(1)
         # Load image
         image = cv2.imread(image_path)
         if image is None:
@@ -200,7 +272,7 @@ def crop_map_image(image_path: str, image_name: str, output_path: str, padding: 
             return False
         
         # Detect corners
-        corners = detect_outer_frame(image, image_name)
+        corners = detect_outer_frame(image, image_name, color)
         if corners is None:
             print("")
             print(f"Could not detect outer map corners in {image_path}")
@@ -223,7 +295,7 @@ def crop_map_image(image_path: str, image_name: str, output_path: str, padding: 
             print(f"Cropped outer is none")
             return 2
         
-        corners_inner = detect_inner_frame(cropped_outer, image_name)
+        corners_inner = detect_inner_frame(cropped_outer, image_name, color)
         if corners_inner is None:
             print("")
             print(f"Could not detect inner map corners in {image_path}")
