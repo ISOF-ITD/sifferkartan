@@ -37,7 +37,6 @@ def detect_outer_frame(image: np.ndarray, image_name: str) -> Optional[Tuple[int
     
     # Detect edges (corner marks are typically high-contrast)
     edges = cv2.Canny(blurred, 50, 120)
-    cv2.imwrite(OUTPUT_FOLDER + '\\edges.jpg', edges)
     
     # Detect lines using Hough Line Transform
     lines = cv2.HoughLinesP(edges, 1, np.pi/180, 50, minLineLength=200, maxLineGap=0)
@@ -61,24 +60,29 @@ def detect_outer_frame(image: np.ndarray, image_name: str) -> Optional[Tuple[int
  
     if rectangle is not None:
         x, y, w, h = cv2.boundingRect(rectangle)
-        cv2.rectangle(image2, (x, y), (x + w, y + h), (0, 255, 0), 3)
-        cv2.imwrite(OUTPUT_FOLDER + '\\rect.jpg', image2)
-        JSON_OUTPUT.append({
-            'name': image_name,
-            'status':'outer rectangle',
-            'x': x,
-            'y': y,
-            'max-x': x+w,
-            'max-y': y+h,
-            })
-        return (x+10,y+10,x+w-10,y+h-10)
+        if h < 2000 or w < 2000:
+            cv2.rectangle(image2, (x, y), (x + w, y + h), (0, 255, 0), 3)
+            cv2.imwrite(OUTPUT_FOLDER + f'\\others\\rect-{image_name}.jpg', image2)
+            print("")
+            print(f"No outer rectangle found for {image_name}")
+            JSON_OUTPUT.append({
+                'name': image_name,
+                'status': 'ERROR, no outer frame'})
+        else:
+            cv2.rectangle(image2, (x, y), (x + w, y + h), (0, 255, 0), 3)
+            #cv2.imwrite(OUTPUT_FOLDER + f'\\others\\{image_name}rect.jpg', image2)
+            JSON_OUTPUT.append({
+                'name': image_name,
+                'status':'outer rectangle',
+                'x': x,
+                'y': y,
+                'max-x': x+w,
+                'max-y': y+h,
+                })
+            return (x+10,y+10,x+w-10,y+h-10)
     
-    print("")
-    print("---------------")
-    print(image_name)
-    print("outer rectangle not found, using lines to approximate")
-    print("---------------")
     if lines is None:
+        cv2.imwrite(OUTPUT_FOLDER + f'\\others\\edges-{image_name}.jpg', edges)
         return None
     
     # Separate horizontal and vertical lines
@@ -97,8 +101,7 @@ def detect_outer_frame(image: np.ndarray, image_name: str) -> Optional[Tuple[int
             vertical_lines.append((min(x1, x2), max(x1, x2), min(y1, y2), max(y1, y2)))
 
     if not horizontal_lines or not vertical_lines:
-        print(horizontal_lines)
-        print(vertical_lines) 
+        cv2.imwrite(OUTPUT_FOLDER + f'\\others\\edges-{image_name}.jpg', edges)
         return None
     
     # Find bounding box from detected lines
@@ -106,6 +109,7 @@ def detect_outer_frame(image: np.ndarray, image_name: str) -> Optional[Tuple[int
     x_coords = [line[0] for line in vertical_lines] + [line[1] for line in vertical_lines]
    
     if not x_coords or not y_coords:
+        cv2.imwrite(OUTPUT_FOLDER + f'\\others\\edges-{image_name}.jpg', edges)
         return None
     
     # Use clustering to find the actual map boundaries (reject outliers)
@@ -119,7 +123,7 @@ def detect_outer_frame(image: np.ndarray, image_name: str) -> Optional[Tuple[int
     
     return (x_min, y_min, x_max, y_max)
 
-def detect_inner_frame(image: np.ndarray) -> Optional[Tuple[int, int, int, int]]:
+def detect_inner_frame(image: np.ndarray, image_name:str) -> Optional[Tuple[int, int, int, int]]:
      # Convert to grayscale
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     
@@ -130,12 +134,12 @@ def detect_inner_frame(image: np.ndarray) -> Optional[Tuple[int, int, int, int]]
     
     # Detect edges (corner marks are typically high-contrast)
     edges = cv2.Canny(blurred, 100, 120)
-    cv2.imwrite(OUTPUT_FOLDER + '\\edges2.png', edges)
     
     # Detect lines using Hough Line Transform
     lines = cv2.HoughLinesP(edges, 1, np.pi/180, 50, minLineLength=200, maxLineGap=4000)
 
     if lines is None:
+        cv2.imwrite(OUTPUT_FOLDER + f'\\others\\egdes2-{image_name}.jpg', edges)
         return None
     
     # Separate horizontal and vertical lines
@@ -154,8 +158,7 @@ def detect_inner_frame(image: np.ndarray) -> Optional[Tuple[int, int, int, int]]
             vertical_lines.append((min(x1, x2), max(x1, x2), min(y1, y2), max(y1, y2)))
 
     if not horizontal_lines or not vertical_lines:
-        print(horizontal_lines)
-        print(vertical_lines) 
+        cv2.imwrite(OUTPUT_FOLDER + f'\\others\\egdes2-{image_name}.jpg', edges)
         return None
     
     # Find bounding box from detected lines
@@ -163,6 +166,7 @@ def detect_inner_frame(image: np.ndarray) -> Optional[Tuple[int, int, int, int]]
     x_coords = [line[0] for line in vertical_lines] + [line[1] for line in vertical_lines]
    
     if not x_coords or not y_coords:
+        cv2.imwrite(OUTPUT_FOLDER + f'\\others\\egdes2-{image_name}.jpg', edges)
         return None
     
     # Use clustering to find the actual map boundaries (reject outliers)
@@ -176,7 +180,7 @@ def detect_inner_frame(image: np.ndarray) -> Optional[Tuple[int, int, int, int]]
     
     return (x_min, y_min, x_max, y_max)
 
-def crop_map_image(image_path: str, image_name: str, output_path: str, padding: int = 0) -> bool:
+def crop_map_image(image_path: str, image_name: str, output_path: str, padding: int = 0) -> int:
     """
     Load image, detect map corners, and save cropped version.
     
@@ -198,7 +202,8 @@ def crop_map_image(image_path: str, image_name: str, output_path: str, padding: 
         # Detect corners
         corners = detect_outer_frame(image, image_name)
         if corners is None:
-            print(f"Could not detect map corners in {image_path}")
+            print("")
+            print(f"Could not detect outer map corners in {image_path}")
             return False
         
         x_min, y_min, x_max, y_max = corners
@@ -211,17 +216,19 @@ def crop_map_image(image_path: str, image_name: str, output_path: str, padding: 
         
         # Crop image
         cropped_outer = image[y_min:y_max, x_min:x_max]
-        print(f"Cropped outer {image_path}")
+        #print(f"Cropped outer {image_path}")
         # Save result
-        cv2.imwrite(output_path+".outer.jpg", cropped_outer)
+        #cv2.imwrite(OUTPUT_FOLDER + f'\\others\\1outer-{image_name}.jpg', cropped_outer)
         if cropped_outer is None:
             print(f"Cropped outer is none")
-            return False
+            return 2
         
-        corners_inner = detect_inner_frame(cropped_outer)
+        corners_inner = detect_inner_frame(cropped_outer, image_name)
         if corners_inner is None:
-            print(f"Could not detect map corners in {image_path} - outer")
-            return False
+            print("")
+            print(f"Could not detect inner map corners in {image_path}")
+            cv2.imwrite(OUTPUT_FOLDER + f'\\others\\1outer-{image_name}.jpg', cropped_outer)
+            return 3
         
         x_min, y_min, x_max, y_max = corners_inner
         
@@ -233,13 +240,13 @@ def crop_map_image(image_path: str, image_name: str, output_path: str, padding: 
         cropped_inner = cropped_outer[y_min:y_max, x_min:x_max]
         cv2.imwrite(output_path, cropped_inner)
 
-        print("")
-        print(f"Successfully cropped: {image_path} → {output_path}")
-        return True
+        #print("")
+        #print(f"Successfully cropped: {image_path} → {output_path}")
+        return 1
     
     except Exception as e:
         print(f"Error processing {image_path}: {e}")
-        return False
+        return 0
 
 def batch_process_maps(input_dir: str, output_dir: str, padding: int = 0):
     """
@@ -263,12 +270,23 @@ def batch_process_maps(input_dir: str, output_dir: str, padding: int = 0):
         sys.exit(1)
     
     successful = 0
+    outer=0
+    inner=0
     for img_file in image_files:
-        output_file = output_path / img_file.name
-        if crop_map_image(str(img_file), img_file.name, str(output_file), padding):
+        output_filename = img_file.name.rsplit(".")[0] + "-cut.jpg"
+        output_file = output_path / output_filename
+        result = crop_map_image(str(img_file), img_file.name, str(output_file), padding)
+        if result == 1:
             successful += 1
+        elif result == 2:
+            outer += 1
+        elif result == 3:
+            inner += 1
     
+    print("")
     print(f"Successfully processed {successful}/{len(image_files)} images")
+    print(f"Outer failed {outer}/{len(image_files)} images")
+    print(f"Inner failed {inner}/{len(image_files)} images")
 
 # Usage
 if __name__ == "__main__":
@@ -282,6 +300,6 @@ if __name__ == "__main__":
         print("Usage: python program input-folder output-folder")
         sys.exit(1)
     batch_process_maps(INPUT_FOLDER, OUTPUT_FOLDER, 0)
-    print("writing json")
+    #print("writing json")
     with open(OUTPUT_FOLDER+'\\info.json', 'w') as f:
         json.dump(JSON_OUTPUT, f, indent=4)

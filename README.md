@@ -3,7 +3,7 @@ Denna repo innehåller pythonscript som justerar sifferkartor från [https://sif
 Skripten används för att beskära och georefererara kartor.
 
 # Användning
-Pre-reqs: Python3; gdal, cv2(openCV), numpy for python 
+Pre-reqs: Python3; gdal, cv2(openCV) and numpy for python.
 
 ```python <script.py> <input-folder> <output-folder> (<json-input>)```
 
@@ -13,7 +13,7 @@ Pre-reqs: Python3; gdal, cv2(openCV), numpy for python
 
 
 # Resultat
-Exempel:
+Exempel för hur det kan bli när man beskär en karta.
 
 | input | output |
 |---|---|
