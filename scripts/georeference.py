@@ -41,7 +41,7 @@ def batch_process_maps(input_folder: str, output_folder: str, json_path: str, lo
     for img_file in image_files:
         output_filename = img_file.name.rsplit(".")[0] + ".tiff"
         output_file = output_path / output_filename
-        id = img_file.name.rsplit("_")[1].rsplit(".")[0]
+        id = img_file.name.rsplit("_")[1].rsplit("-cut")[0]
         print(id)
         if process_tif(str(img_file), geo_info, id, str(output_file)):
             successful += 1
@@ -50,7 +50,8 @@ def batch_process_maps(input_folder: str, output_folder: str, json_path: str, lo
 
 def process_tif(tif_path, geo_info, kartbladsid, output_path):
     """
-    Create a GeoTIFF from a TIF file using geospatial data from GeoJSON.
+    Create a GeoTIFF from a TIF file using geospatial data from GeoJSON,
+    then reproject from EPSG:4979 to EPSG:3006.
     
     Args:
         tif_path: Path to the input TIF file
@@ -78,43 +79,64 @@ def process_tif(tif_path, geo_info, kartbladsid, output_path):
     width = source.RasterXSize
     height = source.RasterYSize
     
-    # Calculate geotransform from polygon bounds
-    # Extract min/max coordinates
-    lons = [coord[0] for coord in coords]
-    lats = [coord[1] for coord in coords]
+    # Get the four corners of the polygon (remove duplicate last point)
+    polygon_corners = coords[:-1]
     
-    min_lon = min(lons)
-    max_lon = max(lons)
-    min_lat = min(lats)
-    max_lat = max(lats)
+    if len(polygon_corners) != 4:
+        raise ValueError(f"Expected 4 corners, found {len(polygon_corners)}. "
+                        f"Polygon must be a quadrilateral for proper georeference.")
     
-    # Calculate pixel sizes
-    pixel_width = (max_lon - min_lon) / width
-    pixel_height = (min_lat - max_lat) / height  # Negative because y increases downward
+    # Create GCPs by mapping polygon corners directly to image corners
+    # GeoJSON polygon corners are typically ordered: top-left, top-right, bottom-right, bottom-left
+    # Map them to image corners in the same order
+    gcps = []
+    image_corners = [
+        (0, height),                # bottom-left
+        (0, 0),                    # top-left
+        (width, 0),                # top-right
+        (width, height),           # bottom-right
+    ]
     
-    # Create geotransform (upper_left_x, pixel_width, 0, upper_left_y, 0, pixel_height)
-    geotransform = (min_lon, pixel_width, 0, max_lat, 0, pixel_height)
+    for i, (poly_corner, img_corner) in enumerate(zip(polygon_corners, image_corners)):
+        gcp = gdal.GCP(poly_corner[0], poly_corner[1], 0, img_corner[0], img_corner[1])
+        gcps.append(gcp)
     
-    # Create GeoTIFF
+    # Create temporary GeoTIFF with GCPs
+    temp_output = output_path.replace(".tiff", "_temp.tiff")
     driver = gdal.GetDriverByName('GTiff')
-    geotiff = driver.CreateCopy(output_path, source)
+    geotiff = driver.CreateCopy(temp_output, source)
     
-    # Apply geotransform
-    geotiff.SetGeoTransform(geotransform)
-    
-    # Set CRS (EPSG:4326 = WGS84, which your GeoJSON uses)
-    # 4979 is CRS84
+    # Set GCPs and CRS
     srs = osr.SpatialReference()
     srs.ImportFromEPSG(4979)
-    geotiff.SetProjection(srs.ExportToWkt())
+    geotiff.SetGCPs(gcps, srs.ExportToWkt())
     
-    # Flush to disk
     geotiff.FlushCache()
     geotiff = None
     source = None
     
-    print(f"GeoTIFF created: {output_path}")
+    # Reproject from EPSG:4979 to EPSG:3006
+    src_srs = osr.SpatialReference()
+    src_srs.ImportFromEPSG(4979)
+    
+    dst_srs = osr.SpatialReference()
+    dst_srs.ImportFromEPSG(3006)
+    
+    warp_options = gdal.WarpOptions(
+        srcSRS=src_srs,
+        dstSRS=dst_srs,
+        resampleAlg=gdal.GRA_Bilinear
+    )
+    
+    gdal.Warp(output_path, temp_output, options=warp_options)
+    
+    # Remove temporary file
+    import os
+    os.remove(temp_output)
+    
+    print(f"GeoTIFF created and reprojected: {output_path}")
     return True
+
     #sys.exit(1)
 
 
