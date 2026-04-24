@@ -11,8 +11,9 @@ OUTPUT_FOLDER = sys.argv[2]
 JSON_OUTPUT = [] # append per action taken for each image
 
 ## TODO:
-## När bilder är mindre än x - x skriv ut det i terminalen -> till fil och sortera bort dem till en annan mapp. Lägg till mer statustext här, man kan kolla om bilderna är 1:1 eller så.
-##
+## Check ratio of image-cut, it should be close to 1:1
+## Change blur/edge-detection for the different map-types(colors)
+## Add recursion/better error handling if the image isnt up to scruff.
 
 ## when in doubt change the blur - xx
 
@@ -63,7 +64,11 @@ def detect_outer_frame(image: np.ndarray, image_name: str, image_color: str) -> 
     """
     # Convert to grayscale
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    if image_color == "pink":
+    if image_color == "p":
+        #TODO :
+        # edit this so that images with pink background get cut correctly.
+        # maybe use another techinque
+
         # Apply slight blur to reduce noise
         blurred = gray
         #blurred = cv2.GaussianBlur(gray, (5, 5), 0)
@@ -79,7 +84,7 @@ def detect_outer_frame(image: np.ndarray, image_name: str, image_color: str) -> 
         
         # Detect lines using Hough Line Transform
         lines = cv2.HoughLinesP(edges, 1, np.pi/180, 50, minLineLength=200, maxLineGap=0)
-    elif image_color == "green":
+    elif image_color == "g" or image_color == "dg":
         # Apply slight blur to reduce noise
         blurred = gray
         #blurred = cv2.GaussianBlur(gray, (5, 5), 0)
@@ -96,6 +101,7 @@ def detect_outer_frame(image: np.ndarray, image_name: str, image_color: str) -> 
         # Detect lines using Hough Line Transform
         lines = cv2.HoughLinesP(edges, 1, np.pi/180, 50, minLineLength=200, maxLineGap=0)
     else:
+        print(f"map-type unknown. skipping {image_name}")
         return
     
     
@@ -256,12 +262,15 @@ def crop_map_image(image_path: str, image_name: str, output_path: str, padding: 
         print(f"Image: {image_name}")
         print(f"Dominant color (RGB): {dominant[0]},{dominant[1]},{dominant[2]}")
         #print(f"Hex: {rgb_to_hex(dominant)}")
-        if dominant[0] > 200 and dominant[1] > 200:
+        if dominant[0] > 200 and dominant[1] > 180:
             print("pink dominant")
-            color = "pink"
+            color = "p"
         elif 170 < dominant[0] < 200 and dominant[1] < 200:
             print("green dominant")
-            color = "green"
+            color = "g"
+        elif 140 < dominant[0] < 180 and 140 < dominant[1] < 180:
+            print("darker green dominant")
+            color = "dg"
         else:
             print("unknown color range, check image")
             sys.exit(1)
