@@ -49,62 +49,7 @@ def get_dominant_color(image_path):
     
     return tuple(dominant_color)
 
-def rgb_to_hex(rgb):
-    """Convert RGB tuple to hex color string."""
-    r, g, b = rgb
-    return f'#{r:02X}{g:02X}{b:02X}'
-
-
-def detect_outer_frame(image: np.ndarray, image_name: str, image_color: str) -> Optional[Tuple[int, int, int, int]]:
-    """
-    Detect the four corners of a map by finding the corner marks.
-    
-    Returns:
-        Tuple of (x_min, y_min, x_max, y_max) coordinates, or None if detection fails
-    """
-    # Convert to grayscale
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    if image_color == "p":
-        #TODO :
-        # edit this so that images with pink background get cut correctly.
-        # maybe use another techinque
-
-        # Apply slight blur to reduce noise
-        blurred = gray
-        #blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-        #blurred = cv2.blur(blurred,(5,5))
-        #blurred = cv2.blur(blurred,(5,5))
-
-        #blur level matters allllot 
-        # implement different levels of it and checks if the image is likley the wrong size, if it is change the blur level. 
-        # the inner frame seems to like more blur, the outer less.
-        
-        # Detect edges (corner marks are typically high-contrast)
-        edges = cv2.Canny(blurred, 50, 120)
-        
-        # Detect lines using Hough Line Transform
-        lines = cv2.HoughLinesP(edges, 1, np.pi/180, 50, minLineLength=200, maxLineGap=0)
-    elif image_color == "g" or image_color == "dg":
-        # Apply slight blur to reduce noise
-        blurred = gray
-        #blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-        blurred = cv2.blur(blurred,(5,5))
-        #blurred = cv2.blur(blurred,(5,5))
-
-        #blur level matters allllot 
-        # implement different levels of it and checks if the image is likley the wrong size, if it is change the blur level. 
-        # the inner frame seems to like more blur, the outer less.
-        
-        # Detect edges (corner marks are typically high-contrast)
-        edges = cv2.Canny(blurred, 50, 120)
-        
-        # Detect lines using Hough Line Transform
-        lines = cv2.HoughLinesP(edges, 1, np.pi/180, 50, minLineLength=200, maxLineGap=0)
-    else:
-        print(f"map-type unknown. skipping {image_name}")
-        return
-    
-    
+def find_largest_rectangle(image: np.ndarray, image_name:str, edges) -> Optional[Tuple[int, int, int, int]]:
     # Used to find the largest rectangle in the image
     max_area = 0
     rectangle = None
@@ -144,6 +89,57 @@ def detect_outer_frame(image: np.ndarray, image_name: str, image_color: str) -> 
                 'max-y': y+h,
                 })
             return (x+10,y+10,x+w-10,y+h-10)
+    return
+
+def detect_outer_frame(image: np.ndarray, image_name: str, image_color: str) -> Optional[Tuple[int, int, int, int]]:
+    """
+    Detect the four corners of a map by finding the corner marks.
+    
+    Returns:
+        Tuple of (x_min, y_min, x_max, y_max) coordinates, or None if detection fails
+    """
+    # Convert to grayscale
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    if image_color == "p":
+        #TODO :
+        # edit this so that images with pink background get cut correctly.
+        # maybe use another techinque
+        #blur level matters allllot 
+        # implement different levels of it and checks if the image is likley the wrong size, if it is change the blur level. 
+        # the inner frame seems to like more blur, the outer less.
+   
+
+        # Apply slight blur to reduce noise
+        blurred = gray
+        #blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+        #blurred = cv2.blur(blurred,(5,5))
+        #blurred = cv2.blur(blurred,(5,5))
+
+     
+        # Detect edges (corner marks are typically high-contrast)
+        edges = cv2.Canny(blurred, 50, 120)
+        
+        # Detect lines using Hough Line Transform
+        lines = cv2.HoughLinesP(edges, 1, np.pi/180, 50, minLineLength=200, maxLineGap=0)
+    elif image_color == "g" or image_color == "dg":
+        # Apply slight blur to reduce noise
+        blurred = gray
+        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+        blurred = cv2.blur(blurred,(5,5))
+        #blurred = cv2.blur(blurred,(5,5))
+
+        # Detect edges (corner marks are typically high-contrast)
+        edges = cv2.Canny(blurred, 50, 120)
+        
+        # Detect lines using Hough Line Transform
+        lines = cv2.HoughLinesP(edges, 1, np.pi/180, 50, minLineLength=200, maxLineGap=0)
+    else:
+        print(f"map-type unknown. skipping {image_name}")
+        return
+    
+    rectangle = find_largest_rectangle(image,image_name,edges)
+    if rectangle is not None:
+        return rectangle
     
     if lines is None:
         cv2.imwrite(OUTPUT_FOLDER + f'\\others\\edges-{image_name}.jpg', edges)
@@ -190,19 +186,33 @@ def detect_outer_frame(image: np.ndarray, image_name: str, image_color: str) -> 
 def detect_inner_frame(image: np.ndarray, image_name:str, image_color: str) -> Optional[Tuple[int, int, int, int]]:
      # Convert to grayscale
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    
-    # Apply slight blur to reduce noise
-    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-    blurred = cv2.blur(blurred,(5,5))
-    blurred = cv2.blur(blurred,(5,5))
-    
-    # Detect edges (corner marks are typically high-contrast)
-    edges = cv2.Canny(blurred, 100, 120)
-    
-    # Detect lines using Hough Line Transform
-    lines = cv2.HoughLinesP(edges, 1, np.pi/180, 50, minLineLength=200, maxLineGap=4000)
+    if image_color == "p":
+        # Apply slight blur to reduce noise
+        blurred = gray
+        #blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+        #blurred = cv2.blur(blurred,(5,5))
+        #blurred = cv2.blur(blurred,(5,5))
+        # Detect edges (corner marks are typically high-contrast)
+        edges = cv2.Canny(blurred, 100, 120)
+        
+        # Detect lines using Hough Line Transform
+        lines = cv2.HoughLinesP(edges, 1, np.pi/180, 50, minLineLength=200, maxLineGap=4000)
+
+    elif image_color == "g" or image_color == "dg":
+        # Apply slight blur to reduce noise
+        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+        #blurred = cv2.blur(blurred,(5,5))
+        blurred = cv2.blur(blurred,(5,5))
+        # Detect edges (corner marks are typically high-contrast)
+        edges = cv2.Canny(blurred, 100, 120)
+        
+        # Detect lines using Hough Line Transform
+        lines = cv2.HoughLinesP(edges, 1, np.pi/180, 50, minLineLength=200, maxLineGap=4000)
+    else:
+        return
 
     if lines is None:
+        print("lines are none")
         cv2.imwrite(OUTPUT_FOLDER + f'\\others\\egdes2-{image_name}.jpg', edges)
         return None
     
@@ -222,6 +232,7 @@ def detect_inner_frame(image: np.ndarray, image_name:str, image_color: str) -> O
             vertical_lines.append((min(x1, x2), max(x1, x2), min(y1, y2), max(y1, y2)))
 
     if not horizontal_lines or not vertical_lines:
+        print("hori or vert lines are none")
         cv2.imwrite(OUTPUT_FOLDER + f'\\others\\egdes2-{image_name}.jpg', edges)
         return None
     
@@ -230,6 +241,7 @@ def detect_inner_frame(image: np.ndarray, image_name:str, image_color: str) -> O
     x_coords = [line[0] for line in vertical_lines] + [line[1] for line in vertical_lines]
    
     if not x_coords or not y_coords:
+        print("x,y cords are none")
         cv2.imwrite(OUTPUT_FOLDER + f'\\others\\egdes2-{image_name}.jpg', edges)
         return None
     
@@ -244,7 +256,7 @@ def detect_inner_frame(image: np.ndarray, image_name:str, image_color: str) -> O
     
     return (x_min, y_min, x_max, y_max)
 
-def crop_map_image(image_path: str, image_name: str, output_path: str, padding: int = 0) -> int:
+def crop_map_image(image_path: str, image_name: str, output_path, padding: int = 0) -> int:
     """
     Load image, detect map corners, and save cropped version.
     
@@ -275,11 +287,14 @@ def crop_map_image(image_path: str, image_name: str, output_path: str, padding: 
             print("unknown color range, check image")
             sys.exit(1)
         # Load image
-        image = cv2.imread(image_path)
+        with open(image_path, 'rb') as f:
+            image_data = np.frombuffer(f.read(), np.uint8)
+
+        image = cv2.imdecode(image_data, cv2.IMREAD_COLOR)
         if image is None:
             print(f"Failed to load {image_path}")
             return False
-        
+
         # Detect corners
         corners = detect_outer_frame(image, image_name, color)
         if corners is None:
@@ -319,8 +334,14 @@ def crop_map_image(image_path: str, image_name: str, output_path: str, padding: 
         x_max = min(cropped_outer.shape[1], x_max + padding)
         y_max = min(cropped_outer.shape[0], y_max + padding)
         cropped_inner = cropped_outer[y_min:y_max, x_min:x_max]
-        cv2.imwrite(output_path, cropped_inner)
 
+        #decode to handle ut8 - åäö
+        success, image_encoded = cv2.imencode('.jpg', cropped_inner)
+        if success:
+            with open(output_path, 'wb') as f:
+                f.write(image_encoded.tobytes())
+        else:
+            print(f"ERROR: Could not encode image")
         #print("")
         #print(f"Successfully cropped: {image_path} → {output_path}")
         return 1
@@ -342,10 +363,9 @@ def batch_process_maps(input_dir: str, output_dir: str, padding: int = 0):
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
     
-    # Process all common image formats
-    image_files = list(input_path.glob('*.jpg')) + list(input_path.glob('*.png')) + \
-                  list(input_path.glob('*.tif'))
-    
+    extensions = ['*.jpg', '*.png', '*.tif']
+    image_files = [f for ext in extensions for f in input_path.glob(f'**/{ext}')]
+
     print(f"Found {len(image_files)} images to process")
     if len(image_files) == 0:
         sys.exit(1)
@@ -356,7 +376,7 @@ def batch_process_maps(input_dir: str, output_dir: str, padding: int = 0):
     for img_file in image_files:
         output_filename = img_file.name.rsplit(".")[0] + "-cut.jpg"
         output_file = output_path / output_filename
-        result = crop_map_image(str(img_file), img_file.name, str(output_file), padding)
+        result = crop_map_image(str(img_file), img_file.name, output_file, padding)
         if result == 1:
             successful += 1
         elif result == 2:
