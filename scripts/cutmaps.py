@@ -15,6 +15,9 @@ JSON_OUTPUT = [] # append per action taken for each image
 ## Change blur/edge-detection for the different map-types(colors)
 ## Add recursion/better error handling if the image isnt up to scruff.
 
+
+## Add way to specify the amount of blur or multiple runs with different amounts of blur.
+
 ## when in doubt change the blur - xx
 
 def get_dominant_color(image_path):
@@ -46,8 +49,22 @@ def get_dominant_color(image_path):
     
     # Find the most common color
     dominant_color = pixels.mean(axis=0).astype(int)
+    dominant = tuple(dominant_color)
+    color = ""
+    if dominant[0] > 200 and dominant[1] > 180:
+    #    print("pink dominant")
+        color = "p"
+    elif 170 < dominant[0] < 200 and dominant[1] < 200:
+    #    print("green dominant")
+        color = "g"
+    elif 140 < dominant[0] < 180 and 140 < dominant[1] < 180:
+    #    print("darker green dominant")
+        color = "dg"
+    else:
+        print("unknown color range, check image")
+        sys.exit(1)
     
-    return tuple(dominant_color)
+    return color
 
 def find_largest_rectangle(image: np.ndarray, image_name:str, edges) -> Optional[Tuple[int, int, int, int]]:
     # Used to find the largest rectangle in the image
@@ -279,22 +296,11 @@ def crop_map_image(image_path: str, image_name: str, output_path, padding: int =
         True if successful, False otherwise
     """
     try:
-        dominant = get_dominant_color(image_path)
-        color=""
+        color = get_dominant_color(image_path)
+        #color=""
         #print(f"Dominant color (RGB): {dominant[0]},{dominant[1]},{dominant[2]}")
         #print(f"Hex: {rgb_to_hex(dominant)}")
-        if dominant[0] > 200 and dominant[1] > 180:
-        #    print("pink dominant")
-            color = "p"
-        elif 170 < dominant[0] < 200 and dominant[1] < 200:
-        #    print("green dominant")
-            color = "g"
-        elif 140 < dominant[0] < 180 and 140 < dominant[1] < 180:
-        #    print("darker green dominant")
-            color = "dg"
-        else:
-            print("unknown color range, check image")
-            sys.exit(1)
+
         # Load image
         with open(image_path, 'rb') as f:
             image_data = np.frombuffer(f.read(), np.uint8)
