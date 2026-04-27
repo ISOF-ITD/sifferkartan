@@ -1,14 +1,16 @@
-import cv2
 import numpy as np
-import sys
+import sys, json, cv2
+
 from PIL import Image
 from pathlib import Path
 from typing import Tuple, Optional
-import json
+from collections import defaultdict
 
 INPUT_FOLDER = sys.argv[1]
 OUTPUT_FOLDER = sys.argv[2]
 JSON_OUTPUT = [] # append per action taken for each image
+global_colors = []
+global_failed_colors = []
 
 ## TODO:
 ## Check ratio of image-cut, it should be close to 1:1
@@ -24,12 +26,13 @@ def get_dominant_color(image_path):
     """
     Get the most dominant color in an image.
     Used for classifying what type of map cut technique to use.
+        tuple: RGB color tuple (r, g, b)
     
     Args:
         image_path (str): Path to the image file
         
     Returns:
-        tuple: RGB color tuple (r, g, b)
+        string: the dominant color
     """
     # Open the image
     img = Image.open(image_path)
@@ -54,12 +57,15 @@ def get_dominant_color(image_path):
     if dominant[0] > 200 and dominant[1] > 180:
     #    print("pink dominant")
         color = "p"
+        global_colors.append('p')
     elif 170 < dominant[0] < 200 and dominant[1] < 200:
     #    print("green dominant")
         color = "g"
+        global_colors.append('g')
     elif 140 < dominant[0] < 180 and 140 < dominant[1] < 180:
     #    print("darker green dominant")
         color = "dg"
+        global_colors.append('dg')
     else:
         print("unknown color range, check image")
         sys.exit(1)
@@ -86,11 +92,11 @@ def find_largest_rectangle(image: np.ndarray, image_name:str, edges) -> Optional
  
     if rectangle is not None:
         x, y, w, h = cv2.boundingRect(rectangle)
-        if h < 2000 or w < 2000: # 4000px for tif, 2000px for jpg
+        if (h < 2000 or w < 2000) or not (0.9 < (h / w) < 1.1):# 4000px for tif, 2000px for jpg. Look if 1:1
             cv2.rectangle(image2, (x, y), (x + w, y + h), (0, 255, 0), 3)
             cv2.imwrite(OUTPUT_FOLDER + f'\\others\\rect-{image_name}.jpg', image2)
-            print(f"No outer rectangle found for {image_name}")
-            print("")
+            #print(f"No outer rectangle found for {image_name}")
+            #print("")
             JSON_OUTPUT.append({
                 'name': image_name,
                 'status': 'ERROR, no outer frame'})
@@ -198,9 +204,9 @@ def detect_outer_frame(image: np.ndarray, image_name: str, image_color: str) -> 
     y_max = y_sorted[3 * len(y_sorted) // 4]  # Upper quartile
     x_min = x_sorted[len(x_sorted) // 4]
     x_max = x_sorted[3 * len(x_sorted) // 4]
-    print(((y_max - y_min) / (x_max - x_min)))
+
     #if smaller than this its cut wrongly.
-    if not (0.8 < ((y_max - y_min) / (x_max - x_min)) < 1.2): #for 1:1 maps
+    if not (0.9 < ((y_max - y_min) / (x_max - x_min + .00001)) < 1.1): #for 1:1 maps
     #if y_max - y_min < 2000 or x_max - x_min < 2000:
         return
     
@@ -216,18 +222,18 @@ def detect_inner_frame(image: np.ndarray, image_name:str, image_color: str) -> O
         #blurred = cv2.blur(blurred,(5,5))
         #blurred = cv2.blur(blurred,(5,5))
         # Detect edges (corner marks are typically high-contrast)
-        edges = cv2.Canny(blurred, 100, 120)
+        edges = cv2.Canny(blurred, 50, 120)
         
         # Detect lines using Hough Line Transform
         lines = cv2.HoughLinesP(edges, 1, np.pi/180, 50, minLineLength=200, maxLineGap=4000)
-
     elif image_color == "g" or image_color == "dg":
         # Apply slight blur to reduce noise
         blurred = cv2.GaussianBlur(gray, (5, 5), 0)
         #blurred = cv2.blur(blurred,(5,5))
         blurred = cv2.blur(blurred,(5,5))
+
         # Detect edges (corner marks are typically high-contrast)
-        edges = cv2.Canny(blurred, 100, 120)
+        edges = cv2.Canny(blurred, 50, 120)
         
         # Detect lines using Hough Line Transform
         lines = cv2.HoughLinesP(edges, 1, np.pi/180, 50, minLineLength=200, maxLineGap=4000)
@@ -278,9 +284,9 @@ def detect_inner_frame(image: np.ndarray, image_name:str, image_color: str) -> O
     x_max = x_sorted[3 * len(x_sorted) // 4]
 
     #if smaller than this its cut wrongly.
-    if not (0.8 < ((y_max - y_min) / (x_max - x_min)) < 1.2): #for 1:1 maps
+    if not (0.9 < ((y_max - y_min) / (x_max - x_min + .00001)) < 1.1): #for 1:1 maps
     #if y_max - y_min < 1400 or x_max - x_min < 1400:
-        return
+        return 1
     return (x_min, y_min, x_max, y_max)
 
 def crop_map_image(image_path: str, image_name: str, output_path, padding: int = 0) -> int:
@@ -305,7 +311,7 @@ def crop_map_image(image_path: str, image_name: str, output_path, padding: int =
         with open(image_path, 'rb') as f:
             image_data = np.frombuffer(f.read(), np.uint8)
 
-        print(f"Image: {image_name}")
+        print(f"Processing: {image_name}")
         image = cv2.imdecode(image_data, cv2.IMREAD_COLOR)
         if image is None:
             print(f"Failed to load {image_path}")
@@ -314,9 +320,10 @@ def crop_map_image(image_path: str, image_name: str, output_path, padding: int =
         # Detect corners
         corners = detect_outer_frame(image, image_name, color)
         if corners is None:
+            print(f"{image_name} no outer")
             print("")
-            print(f"Could not detect outer map corners in {image_path}")
-            return False
+            global_failed_colors.append(color)
+            return 2
         
         x_min, y_min, x_max, y_max = corners
         
@@ -333,23 +340,34 @@ def crop_map_image(image_path: str, image_name: str, output_path, padding: int =
         #cv2.imwrite(OUTPUT_FOLDER + f'\\others\\1outer-{image_name}.jpg', cropped_outer)
         if cropped_outer is None:
             print(f"Cropped outer is none")
+            global_failed_colors.append(color)
             return 2
         
         corners_inner = detect_inner_frame(cropped_outer, image_name, color)
         if corners_inner is None:
+            print(f"{image_name} no inner")
             print("")
-            print(f"Could not detect inner map corners in {image_path}")
+            global_failed_colors.append(color)
             cv2.imwrite(OUTPUT_FOLDER + f'\\others\\1outer-{image_name}.jpg', cropped_outer)
             return 3
-        
-        x_min, y_min, x_max, y_max = corners_inner
-        
-        # Apply padding
-        x_min = max(0, x_min - padding)
-        y_min = max(0, y_min - padding)
-        x_max = min(cropped_outer.shape[1], x_max + padding)
-        y_max = min(cropped_outer.shape[0], y_max + padding)
-        cropped_inner = cropped_outer[y_min:y_max, x_min:x_max]
+        elif corners_inner == 1:
+            print("trying simple cut")
+            print("")
+            x_min, y_min, x_max, y_max = corners
+            x_min = x_min + 65
+            x_max = x_max - 65
+            y_min = y_min + 65
+            y_max = y_max - 65
+            # Apply padding
+            cropped_inner = image[y_min:y_max, x_min:x_max]
+        else:    
+            x_min, y_min, x_max, y_max = corners_inner
+            # Apply padding
+            x_min = max(0, x_min - padding)
+            y_min = max(0, y_min - padding)
+            x_max = min(cropped_outer.shape[1], x_max + padding)
+            y_max = min(cropped_outer.shape[0], y_max + padding)
+            cropped_inner = cropped_outer[y_min:y_max, x_min:x_max]
 
         #decode to handle ut8 - åäö
         success, image_encoded = cv2.imencode('.jpg', cropped_inner)
@@ -383,32 +401,35 @@ def batch_process_maps(input_dir: str, output_dir: str, padding: int = 0):
     image_files = [f for ext in extensions for f in input_path.glob(f'**/{ext}')]
 
     print(f"Found {len(image_files)} images to process")
+    print("")
     if len(image_files) == 0:
         sys.exit(1)
     
-    successful = 0
-    outer=0
-    inner=0
+    results = defaultdict(int)
+    result_map = {1: 'successful', 2: 'outer', 3: 'inner'}
+
     for img_file in image_files:
-        output_filename = img_file.name.rsplit(".")[0] + "-cut.jpg"
+        output_filename = img_file.stem + "-cut.jpg"
         output_file = output_path / output_filename
         result = crop_map_image(str(img_file), img_file.name, output_file, padding)
-        if result == 1:
-            successful += 1
-        elif result == 2:
-            outer += 1
-        elif result == 3:
-            inner += 1
+        
+        if result in result_map:
+            results[result_map[result]] += 1
     
     print("")
-    print(f"Successfully processed {successful}/{len(image_files)} images")
-    print(f"Outer failed {outer}/{len(image_files)} images")
-    print(f"Inner failed {inner}/{len(image_files)} images")
+    print(f"Successfully processed {results['successful']}/{len(image_files)} images")
+    print(f"Outer failed {results['outer']}/{len(image_files)} images")
+    print(f"Inner failed {results['inner']}/{len(image_files)} images")
+    print("")
+    print(f"Colors:")
+    print(f"Pink: {global_colors.count('p')}, {global_failed_colors.count('p')} failed")
+    print(f"Green: {global_colors.count('g')}, {global_failed_colors.count('g')} failed")
+    print(f"Dark Green: {global_colors.count('dg')}, {global_failed_colors.count('dg')} failed")
 
 # Usage
 if __name__ == "__main__":
     # Single image
-    #crop_map_image("map.jpg", "map_cropped.jpg", padding=5)
+    #crop_map_image("map.jpg", "map_cropped.jpg", output_filepath, padding=5)
     
     # Batch processing
     #batch_process_maps("./input_maps", "./output_maps", padding=5)
