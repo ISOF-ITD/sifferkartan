@@ -56,16 +56,16 @@ def get_dominant_color(image_path):
     color = ""
     if dominant[0] > 200 and dominant[1] > 180:
     #    print("pink dominant")
-        color = "p"
-        global_colors.append('p')
+        color = "Pink"
+        global_colors.append('Pink')
     elif 170 < dominant[0] < 200 and dominant[1] < 200:
     #    print("green dominant")
-        color = "g"
-        global_colors.append('g')
+        color = "Green"
+        global_colors.append('Green')
     elif 140 < dominant[0] < 180 and 140 < dominant[1] < 180:
     #    print("darker green dominant")
-        color = "dg"
-        global_colors.append('dg')
+        color = "Dark green"
+        global_colors.append('Dark green')
     else:
         print("unknown color range, check image")
         sys.exit(1)
@@ -99,7 +99,7 @@ def find_largest_rectangle(image: np.ndarray, image_name:str, edges) -> Optional
             #print("")
             JSON_OUTPUT.append({
                 'name': image_name,
-                'status': 'ERROR, no outer frame'})
+                'status': 'NO SUITABLE OUTER RECTANGLE'})
         else:
             cv2.rectangle(image2, (x, y), (x + w, y + h), (0, 255, 0), 3)
             #cv2.imwrite(OUTPUT_FOLDER + f'\\others\\{image_name}rect.jpg', image2)
@@ -123,7 +123,7 @@ def detect_outer_frame(image: np.ndarray, image_name: str, image_color: str) -> 
     """
     # Convert to grayscale
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    if image_color == "p":
+    if image_color == "Pink":
         #TODO :
         # edit this so that images with pink background get cut correctly.
         # maybe use another techinque
@@ -144,7 +144,7 @@ def detect_outer_frame(image: np.ndarray, image_name: str, image_color: str) -> 
         
         # Detect lines using Hough Line Transform
         lines = cv2.HoughLinesP(edges, 1, np.pi/180, 50, minLineLength=200, maxLineGap=0)
-    elif image_color == "g" or image_color == "dg":
+    elif image_color == "Green" or image_color == "Dark green":
         # Apply slight blur to reduce noise
         blurred = gray
         #blurred = cv2.GaussianBlur(gray, (5, 5), 0)
@@ -206,7 +206,7 @@ def detect_outer_frame(image: np.ndarray, image_name: str, image_color: str) -> 
     x_max = x_sorted[3 * len(x_sorted) // 4]
 
     #if smaller than this its cut wrongly.
-    if not (0.9 < ((y_max - y_min) / (x_max - x_min + .00001)) < 1.1): #for 1:1 maps
+    if not (0.95 < ((y_max - y_min) / (x_max - x_min + .00001)) < 1.05): #for 1:1 maps
     #if y_max - y_min < 2000 or x_max - x_min < 2000:
         return
     
@@ -215,7 +215,7 @@ def detect_outer_frame(image: np.ndarray, image_name: str, image_color: str) -> 
 def detect_inner_frame(image: np.ndarray, image_name:str, image_color: str) -> Optional[Tuple[int, int, int, int]]:
      # Convert to grayscale
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    if image_color == "p":
+    if image_color == "Pink":
         # Apply slight blur to reduce noise
         blurred = gray
         #blurred = cv2.GaussianBlur(gray, (5, 5), 0)
@@ -226,7 +226,7 @@ def detect_inner_frame(image: np.ndarray, image_name:str, image_color: str) -> O
         
         # Detect lines using Hough Line Transform
         lines = cv2.HoughLinesP(edges, 1, np.pi/180, 50, minLineLength=200, maxLineGap=4000)
-    elif image_color == "g" or image_color == "dg":
+    elif image_color == "Green" or image_color == "Dark green":
         # Apply slight blur to reduce noise
         blurred = cv2.GaussianBlur(gray, (5, 5), 0)
         #blurred = cv2.blur(blurred,(5,5))
@@ -284,7 +284,7 @@ def detect_inner_frame(image: np.ndarray, image_name:str, image_color: str) -> O
     x_max = x_sorted[3 * len(x_sorted) // 4]
 
     #if smaller than this its cut wrongly.
-    if not (0.9 < ((y_max - y_min) / (x_max - x_min + .00001)) < 1.1): #for 1:1 maps
+    if not (0.95 < ((y_max - y_min) / (x_max - x_min + .00001)) < 1.05): #for 1:1 maps
     #if y_max - y_min < 1400 or x_max - x_min < 1400:
         return 1
     return (x_min, y_min, x_max, y_max)
@@ -322,6 +322,9 @@ def crop_map_image(image_path: str, image_name: str, output_path, padding: int =
         if corners is None:
             print(f"{image_name} no outer")
             print("")
+            JSON_OUTPUT.append({
+                'name': image_name,
+                'status': 'OUTER FRAME NOT FOUND'})
             global_failed_colors.append(color)
             return 2
         
@@ -422,9 +425,11 @@ def batch_process_maps(input_dir: str, output_dir: str, padding: int = 0):
     print(f"Inner failed {results['inner']}/{len(image_files)} images")
     print("")
     print(f"Colors:")
-    print(f"Pink: {global_colors.count('p')}, {global_failed_colors.count('p')} failed")
-    print(f"Green: {global_colors.count('g')}, {global_failed_colors.count('g')} failed")
-    print(f"Dark Green: {global_colors.count('dg')}, {global_failed_colors.count('dg')} failed")
+    for item in list(set(global_colors)):
+        print(f"{item}: {global_colors.count(item)}, {global_failed_colors.count(item)} failed")
+    #print(f"Pink: {global_colors.count('Pink')}, {global_failed_colors.count('Pink')} failed")
+    #print(f"Green: {global_colors.count('Green')}, {global_failed_colors.count('Green')} failed")
+    #print(f"Dark Green: {global_colors.count('Dark green')}, {global_failed_colors.count('Dark green')} failed")
 
 # Usage
 if __name__ == "__main__":
