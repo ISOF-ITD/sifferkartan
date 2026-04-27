@@ -53,6 +53,7 @@ def get_dominant_color(image_path):
     # Find the most common color
     dominant_color = pixels.mean(axis=0).astype(int)
     dominant = tuple(dominant_color)
+    #print(f"Dominant color (RGB): {dominant[0]},{dominant[1]},{dominant[2]}")
     color = ""
     if dominant[0] > 200 and dominant[1] > 180:
     #    print("pink dominant")
@@ -62,12 +63,14 @@ def get_dominant_color(image_path):
     #    print("green dominant")
         color = "Green"
         global_colors.append('Green')
-    elif 140 < dominant[0] < 180 and 140 < dominant[1] < 180:
+    elif 140 < dominant[0] < 180 and 140 < dominant[1] < 200:
     #    print("darker green dominant")
         color = "Dark green"
         global_colors.append('Dark green')
     else:
         print("unknown color range, check image")
+        print(f"Dominant color (RGB): {dominant[0]},{dominant[1]},{dominant[2]}")
+        print(f"{image_path}")
         sys.exit(1)
     
     return color
@@ -92,7 +95,7 @@ def find_largest_rectangle(image: np.ndarray, image_name:str, edges) -> Optional
  
     if rectangle is not None:
         x, y, w, h = cv2.boundingRect(rectangle)
-        if (h < 2000 or w < 2000) or not (0.9 < (h / w) < 1.1):# 4000px for tif, 2000px for jpg. Look if 1:1
+        if (h < 2000 or w < 2000) or not (0.95 < (h / w) < 1.05):# 4000px for tif, 2000px for jpg. Look if 1:1
             cv2.rectangle(image2, (x, y), (x + w, y + h), (0, 255, 0), 3)
             cv2.imwrite(OUTPUT_FOLDER + f'\\others\\rect-{image_name}.jpg', image2)
             #print(f"No outer rectangle found for {image_name}")
@@ -302,16 +305,12 @@ def crop_map_image(image_path: str, image_name: str, output_path, padding: int =
         True if successful, False otherwise
     """
     try:
+        print(f"Processing: {image_name}")
         color = get_dominant_color(image_path)
-        #color=""
-        #print(f"Dominant color (RGB): {dominant[0]},{dominant[1]},{dominant[2]}")
-        #print(f"Hex: {rgb_to_hex(dominant)}")
 
         # Load image
         with open(image_path, 'rb') as f:
             image_data = np.frombuffer(f.read(), np.uint8)
-
-        print(f"Processing: {image_name}")
         image = cv2.imdecode(image_data, cv2.IMREAD_COLOR)
         if image is None:
             print(f"Failed to load {image_path}")
@@ -354,13 +353,14 @@ def crop_map_image(image_path: str, image_name: str, output_path, padding: int =
             cv2.imwrite(OUTPUT_FOLDER + f'\\others\\1outer-{image_name}.jpg', cropped_outer)
             return 3
         elif corners_inner == 1:
-            print("trying simple cut")
+            print("Applying simple cut")
             print("")
             x_min, y_min, x_max, y_max = corners
             x_min = x_min + 65
             x_max = x_max - 65
             y_min = y_min + 65
             y_max = y_max - 65
+
             # Apply padding
             cropped_inner = image[y_min:y_max, x_min:x_max]
         else:    
@@ -427,9 +427,7 @@ def batch_process_maps(input_dir: str, output_dir: str, padding: int = 0):
     print(f"Colors:")
     for item in list(set(global_colors)):
         print(f"{item}: {global_colors.count(item)}, {global_failed_colors.count(item)} failed")
-    #print(f"Pink: {global_colors.count('Pink')}, {global_failed_colors.count('Pink')} failed")
-    #print(f"Green: {global_colors.count('Green')}, {global_failed_colors.count('Green')} failed")
-    #print(f"Dark Green: {global_colors.count('Dark green')}, {global_failed_colors.count('Dark green')} failed")
+    return
 
 # Usage
 if __name__ == "__main__":
@@ -446,3 +444,5 @@ if __name__ == "__main__":
     #print("writing json")
     with open(OUTPUT_FOLDER+'\\info.json', 'w') as f:
         json.dump(JSON_OUTPUT, f, indent=4)
+    
+    sys.exit(0)
