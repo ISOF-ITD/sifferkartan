@@ -11,6 +11,7 @@ OUTPUT_FOLDER = sys.argv[2]
 JSON_OUTPUT = [] # append per action taken for each image
 global_colors = []
 global_failed_colors = []
+failed_processing = []
 
 ## TODO:
 ## Check ratio of image-cut, it should be close to 1:1
@@ -211,6 +212,7 @@ def detect_outer_frame(image: np.ndarray, image_name: str, image_color: str) -> 
     #if smaller than this its cut wrongly.
     if not (0.95 < ((y_max - y_min) / (x_max - x_min + .00001)) < 1.05): #for 1:1 maps
     #if y_max - y_min < 2000 or x_max - x_min < 2000:
+        cv2.imwrite(OUTPUT_FOLDER + f'\\others\\edges-{image_name}.jpg', edges)
         return
     
     return (x_min, y_min, x_max, y_max)
@@ -231,7 +233,9 @@ def detect_inner_frame(image: np.ndarray, image_name:str, image_color: str) -> O
         lines = cv2.HoughLinesP(edges, 1, np.pi/180, 50, minLineLength=200, maxLineGap=4000)
     elif image_color == "Green" or image_color == "Dark green":
         # Apply slight blur to reduce noise
-        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+        blurred = gray
+        #blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+        blurred = cv2.blur(blurred,(5,5))
         #blurred = cv2.blur(blurred,(5,5))
         blurred = cv2.blur(blurred,(5,5))
 
@@ -325,6 +329,7 @@ def crop_map_image(image_path: str, image_name: str, output_path, padding: int =
                 'name': image_name,
                 'status': 'OUTER FRAME NOT FOUND'})
             global_failed_colors.append(color)
+            failed_processing.append(image_path)
             return 2
         
         x_min, y_min, x_max, y_max = corners
@@ -350,6 +355,7 @@ def crop_map_image(image_path: str, image_name: str, output_path, padding: int =
             print(f"{image_name} no inner")
             print("")
             global_failed_colors.append(color)
+            failed_processing.append(image_path)
             cv2.imwrite(OUTPUT_FOLDER + f'\\others\\1outer-{image_name}.jpg', cropped_outer)
             return 3
         elif corners_inner == 1:
@@ -427,6 +433,9 @@ def batch_process_maps(input_dir: str, output_dir: str, padding: int = 0):
     print(f"Colors:")
     for item in list(set(global_colors)):
         print(f"{item}: {global_colors.count(item)}, {global_failed_colors.count(item)} failed")
+    print("")
+    for item in failed_processing:
+        print(f"{item}")
     return
 
 # Usage
