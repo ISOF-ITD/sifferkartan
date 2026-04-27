@@ -72,8 +72,8 @@ def find_largest_rectangle(image: np.ndarray, image_name:str, edges) -> Optional
         if h < 2000 or w < 2000: # 4000px for tif, 2000px for jpg
             cv2.rectangle(image2, (x, y), (x + w, y + h), (0, 255, 0), 3)
             cv2.imwrite(OUTPUT_FOLDER + f'\\others\\rect-{image_name}.jpg', image2)
-            print("")
             print(f"No outer rectangle found for {image_name}")
+            print("")
             JSON_OUTPUT.append({
                 'name': image_name,
                 'status': 'ERROR, no outer frame'})
@@ -124,9 +124,10 @@ def detect_outer_frame(image: np.ndarray, image_name: str, image_color: str) -> 
     elif image_color == "g" or image_color == "dg":
         # Apply slight blur to reduce noise
         blurred = gray
-        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+        #blurred = cv2.GaussianBlur(gray, (5, 5), 0)
         blurred = cv2.blur(blurred,(5,5))
         #blurred = cv2.blur(blurred,(5,5))
+        blurred = cv2.blur(blurred,(3,3))
 
         # Detect edges (corner marks are typically high-contrast)
         edges = cv2.Canny(blurred, 50, 120)
@@ -180,6 +181,11 @@ def detect_outer_frame(image: np.ndarray, image_name: str, image_color: str) -> 
     y_max = y_sorted[3 * len(y_sorted) // 4]  # Upper quartile
     x_min = x_sorted[len(x_sorted) // 4]
     x_max = x_sorted[3 * len(x_sorted) // 4]
+    print(((y_max - y_min) / (x_max - x_min)))
+    #if smaller than this its cut wrongly.
+    if not (0.8 < ((y_max - y_min) / (x_max - x_min)) < 1.2): #for 1:1 maps
+    #if y_max - y_min < 2000 or x_max - x_min < 2000:
+        return
     
     return (x_min, y_min, x_max, y_max)
 
@@ -253,7 +259,11 @@ def detect_inner_frame(image: np.ndarray, image_name:str, image_color: str) -> O
     y_max = y_sorted[3 * len(y_sorted) // 4]  # Upper quartile
     x_min = x_sorted[len(x_sorted) // 4]
     x_max = x_sorted[3 * len(x_sorted) // 4]
-    
+
+    #if smaller than this its cut wrongly.
+    if not (0.8 < ((y_max - y_min) / (x_max - x_min)) < 1.2): #for 1:1 maps
+    #if y_max - y_min < 1400 or x_max - x_min < 1400:
+        return
     return (x_min, y_min, x_max, y_max)
 
 def crop_map_image(image_path: str, image_name: str, output_path, padding: int = 0) -> int:
@@ -271,17 +281,16 @@ def crop_map_image(image_path: str, image_name: str, output_path, padding: int =
     try:
         dominant = get_dominant_color(image_path)
         color=""
-        print(f"Image: {image_name}")
-        print(f"Dominant color (RGB): {dominant[0]},{dominant[1]},{dominant[2]}")
+        #print(f"Dominant color (RGB): {dominant[0]},{dominant[1]},{dominant[2]}")
         #print(f"Hex: {rgb_to_hex(dominant)}")
         if dominant[0] > 200 and dominant[1] > 180:
-            print("pink dominant")
+        #    print("pink dominant")
             color = "p"
         elif 170 < dominant[0] < 200 and dominant[1] < 200:
-            print("green dominant")
+        #    print("green dominant")
             color = "g"
         elif 140 < dominant[0] < 180 and 140 < dominant[1] < 180:
-            print("darker green dominant")
+        #    print("darker green dominant")
             color = "dg"
         else:
             print("unknown color range, check image")
@@ -290,6 +299,7 @@ def crop_map_image(image_path: str, image_name: str, output_path, padding: int =
         with open(image_path, 'rb') as f:
             image_data = np.frombuffer(f.read(), np.uint8)
 
+        print(f"Image: {image_name}")
         image = cv2.imdecode(image_data, cv2.IMREAD_COLOR)
         if image is None:
             print(f"Failed to load {image_path}")
