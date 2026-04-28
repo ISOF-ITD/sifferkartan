@@ -50,6 +50,11 @@ def compress_images_batch(input_dir, output_dir, quality=85, max_width=None):
 if __name__ == "__main__":
     if len(sys.argv) < 3:
         print("Usage: python program input-folder output-folder")
+        print("alternate: python program input-folder output-folder quality(1-100)")
         sys.exit(1)
-    compress_images_batch(INPUT_FOLDER, OUTPUT_FOLDER, quality=10)
+    elif len(sys.argv) > 3:
+        print("using specified quality")
+        compress_images_batch(INPUT_FOLDER, OUTPUT_FOLDER, sys.argv[3])
+    else:
+        compress_images_batch(INPUT_FOLDER, OUTPUT_FOLDER, quality=10)
 
