@@ -1,5 +1,5 @@
 import numpy as np
-import sys, json, cv2
+import sys, json, cv2, codecs
 
 from PIL import Image
 from pathlib import Path
@@ -101,20 +101,21 @@ def find_largest_rectangle(image: np.ndarray, image_name:str, edges) -> Optional
             cv2.imwrite(OUTPUT_FOLDER + f'\\others\\rect-{image_name}.jpg', image2)
             #print(f"No outer rectangle found for {image_name}")
             #print("")
-            JSON_OUTPUT.append({
-                'name': image_name,
-                'status': 'NO SUITABLE OUTER RECTANGLE'})
+            #JSON_OUTPUT.append({
+            #    'name': image_name,
+            #    'status': 'NO SUITABLE OUTER RECTANGLE'})
         else:
             cv2.rectangle(image2, (x, y), (x + w, y + h), (0, 255, 0), 3)
             #cv2.imwrite(OUTPUT_FOLDER + f'\\others\\{image_name}rect.jpg', image2)
-            JSON_OUTPUT.append({
-                'name': image_name,
-                'status':'outer rectangle',
-                'x': x,
-                'y': y,
-                'max-x': x+w,
-                'max-y': y+h,
-                })
+            update_output_json('outer', image_name, x, y, x+w,y+h)
+            #JSON_OUTPUT.append({
+            #    'name':image_name,
+            #    'data':{
+            #        'outer':{
+            #            'coords':[x, y, x +w, y + h]
+            #        }
+            #    }
+            #})
             return (x+10,y+10,x+w-10,y+h-10)
     return
 
@@ -214,7 +215,7 @@ def detect_outer_frame(image: np.ndarray, image_name: str, image_color: str) -> 
     #if y_max - y_min < 2000 or x_max - x_min < 2000:
         cv2.imwrite(OUTPUT_FOLDER + f'\\others\\edges-{image_name}.jpg', edges)
         return
-    
+    update_output_json('outer', image_name, x_min,y_min,x_max,y_max)
     return (x_min, y_min, x_max, y_max)
 
 def detect_inner_frame(image: np.ndarray, image_name:str, image_color: str) -> Optional[Tuple[int, int, int, int]]:
@@ -294,7 +295,21 @@ def detect_inner_frame(image: np.ndarray, image_name:str, image_color: str) -> O
     if not (0.95 < ((y_max - y_min) / (x_max - x_min + .00001)) < 1.05): #for 1:1 maps
     #if y_max - y_min < 1400 or x_max - x_min < 1400:
         return 1
+    
+    update_output_json('inner', image_name, x_min,y_min,x_max,y_max)
     return (x_min, y_min, x_max, y_max)
+    
+def update_output_json(type:str, image_name:str, x_min:int,y_min:int,x_max:int,y_max:int):
+    for item in JSON_OUTPUT:
+        if item['name'] == image_name:
+            item['data'].update({
+                type: {
+                    'coords':[int(x_min), int(y_min), int(x_max), int(y_max)]
+                }
+            })
+            item['status'] = type 
+            break
+    return
 
 def crop_map_image(image_path: str, image_name: str, output_path, padding: int = 0) -> int:
     """
@@ -369,6 +384,7 @@ def crop_map_image(image_path: str, image_name: str, output_path, padding: int =
 
             # Apply padding
             cropped_inner = image[y_min:y_max, x_min:x_max]
+            update_output_json('inner', image_name, x_min,y_min,x_max,y_max)
         else:    
             x_min, y_min, x_max, y_max = corners_inner
             # Apply padding
@@ -377,6 +393,7 @@ def crop_map_image(image_path: str, image_name: str, output_path, padding: int =
             x_max = min(cropped_outer.shape[1], x_max + padding)
             y_max = min(cropped_outer.shape[0], y_max + padding)
             cropped_inner = cropped_outer[y_min:y_max, x_min:x_max]
+            update_output_json('inner', image_name, x_min,y_min,x_max,y_max)
 
         #decode to handle ut8 - åäö
         success, image_encoded = cv2.imencode('.jpg', cropped_inner)
@@ -407,7 +424,7 @@ def batch_process_maps(input_dir: str, output_dir: str, padding: int = 0):
     output_path.mkdir(parents=True, exist_ok=True)
     
     extensions = ['*.jpg', '*.png', '*.tif']
-    image_files = [f for ext in extensions for f in input_path.glob(f'**/{ext}')]
+    image_files = [f for ext in extensions for f in input_path.glob (f'**/{ext}')]
 
     print(f"Found {len(image_files)} images to process")
     print("")
@@ -420,6 +437,7 @@ def batch_process_maps(input_dir: str, output_dir: str, padding: int = 0):
     for img_file in image_files:
         output_filename = img_file.stem + "-cut.jpg"
         output_file = output_path / output_filename
+        JSON_OUTPUT.append({'name':img_file.name, 'status': 'unknown', 'data':{}})
         result = crop_map_image(str(img_file), img_file.name, output_file, padding)
         
         if result in result_map:
@@ -438,6 +456,16 @@ def batch_process_maps(input_dir: str, output_dir: str, padding: int = 0):
         print(f"{item}")
     return
 
+class NumpyEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return super().default(obj)
+
 # Usage
 if __name__ == "__main__":
     # Single image
@@ -451,7 +479,7 @@ if __name__ == "__main__":
         sys.exit(1)
     batch_process_maps(INPUT_FOLDER, OUTPUT_FOLDER, 0)
     #print("writing json")
-    with open(OUTPUT_FOLDER+'\\info.json', 'w') as f:
-        json.dump(JSON_OUTPUT, f, indent=4)
+    with open(OUTPUT_FOLDER+'\\info.json', 'w', encoding='utf-8') as f:
+        json.dump(JSON_OUTPUT, f, ensure_ascii=False, indent=4, cls=NumpyEncoder)
     
     sys.exit(0)
