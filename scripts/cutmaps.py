@@ -324,7 +324,6 @@ def crop_map_image(image_path: str, image_name: str, output_path, padding: int =
         True if successful, False otherwise
     """
     try:
-        print(f"Processing: {image_name}")
         color = get_dominant_color(image_path)
 
         # Load image
@@ -434,10 +433,11 @@ def batch_process_maps(input_dir: str, output_dir: str, padding: int = 0):
     results = defaultdict(int)
     result_map = {1: 'successful', 2: 'outer', 3: 'inner'}
 
-    for img_file in image_files:
+    for i, img_file in enumerate(image_files, 1):
         output_filename = img_file.stem + "-cut.jpg"
         output_file = output_path / output_filename
         JSON_OUTPUT.append({'name':img_file.name, 'status': 'unknown', 'data':{}})
+        print(f"[{i}/{len(image_files)}] Processing: {img_file.name}")
         result = crop_map_image(str(img_file), img_file.name, output_file, padding)
         
         if result in result_map:
