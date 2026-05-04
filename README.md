@@ -9,7 +9,7 @@ Pre-reqs: Python3; gdal, cv2(openCV) and numpy for python.
 ```python <script.py> <input-folder> <output-folder> (<json-input-eko-geo> <json-cutmaps>)```
 
 | input-folder | output-folder | json-input-eko-geo | json-cutmaps |
-|---|---|---|
+|---|---|---|---|
 | Kartfiler i formatet jpg eller tif. | Här hamnar resultaten av skripten. | Används vid georeference, innehåller koordinater för kartfilerna i input-folder | Används vid georeference av oklippta kartor, output från cutmaps.py som innehåller information om hörnen i kartorna |
 
 
