@@ -344,9 +344,7 @@ def crop_map_image(image_path: str, image_name: str, output_path, padding: int =
         if corners is None:
             print(f"{image_name} no outer")
             print("")
-            JSON_OUTPUT.append({
-                'image': image_name,
-                'status': 'OUTER FRAME NOT FOUND'})
+            update_output_json('OUTER FRAME NOT FOUND', image_name, 0,0,0,0)
             global_failed_colors.append(color)
             failed_processing.append(image_path)
             return 2
