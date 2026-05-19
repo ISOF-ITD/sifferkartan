@@ -93,9 +93,10 @@ def process_original(tif_path, geo_info, map_info, kartbladsid, output_path):
     just_kartbladsid = "----"
     if '-' in kartbladsid:
         just_kartbladsid = kartbladsid.rsplit('-')[0]
+        just_kartbladsid = re.split(r'[^0-9a-öA-Ö]', just_kartbladsid)[0]
     elif '_' in kartbladsid:
         just_kartbladsid = kartbladsid.rsplit('_')[1]
-        just_kartbladsid = re.split(r'[^1-9a-ö]', just_kartbladsid)[0]
+        just_kartbladsid = re.split(r'[^0-9a-öA-Ö]', just_kartbladsid)[0]
         print(just_kartbladsid)
     
     for feat in geo_info['features']:
@@ -186,6 +187,7 @@ def process_original(tif_path, geo_info, map_info, kartbladsid, output_path):
     os.remove(temp_output)
     
     print(f"GeoTIFF created and reprojected: {output_path}")
+    print("")
     return True
 
 
@@ -206,10 +208,11 @@ def process_tif(tif_path, geo_info, kartbladsid, output_path):
     just_kartbladsid = "----"
     if '-' in kartbladsid:
         just_kartbladsid = kartbladsid.rsplit('-')[0]
+        just_kartbladsid = re.split(r'[^0-9a-öA-Ö]', just_kartbladsid)[0]
     elif '_' in kartbladsid:
         just_kartbladsid = kartbladsid.rsplit('_')[1]
-        just_kartbladsid = re.split(r'[^1-9a-ö]', just_kartbladsid)[0]
-        print(just_kartbladsid)
+        just_kartbladsid = re.split(r'[^0-9a-öA-Ö]', just_kartbladsid)[0]
+
     
     if coords is None:
         raise ValueError(f"kartbladsid '{kartbladsid}' not found in geo_info ('{just_kartbladsid}')")
