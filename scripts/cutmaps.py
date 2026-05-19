@@ -1,5 +1,5 @@
 import numpy as np
-import sys, json, cv2, codecs
+import sys, json, cv2
 
 from PIL import Image
 from pathlib import Path
@@ -12,13 +12,12 @@ JSON_OUTPUT = [] # append per action taken for each image
 global_colors = []
 global_failed_colors = []
 failed_processing = []
+outer_coords = []
 
 ## TODO:
 ## Check ratio of image-cut, it should be close to 1:1
 ## Change blur/edge-detection for the different map-types(colors)
 ## Add recursion/better error handling if the image isnt up to scruff.
-
-
 ## Add way to specify the amount of blur or multiple runs with different amounts of blur.
 
 ## when in doubt change the blur - xx
@@ -108,14 +107,8 @@ def find_largest_rectangle(image: np.ndarray, image_name:str, edges) -> Optional
             cv2.rectangle(image2, (x, y), (x + w, y + h), (0, 255, 0), 3)
             #cv2.imwrite(OUTPUT_FOLDER + f'\\others\\{image_name}rect.jpg', image2)
             update_output_json('outer', image_name, x, y, x+w,y+h)
-            #JSON_OUTPUT.append({
-            #    'name':image_name,
-            #    'data':{
-            #        'outer':{
-            #            'coords':[x, y, x +w, y + h]
-            #        }
-            #    }
-            #})
+            global outer_coords
+            outer_coords = [x, y, x+w,y+h]
             return (x+10,y+10,x+w-10,y+h-10)
     return
 
@@ -215,6 +208,10 @@ def detect_outer_frame(image: np.ndarray, image_name: str, image_color: str) -> 
     #if y_max - y_min < 2000 or x_max - x_min < 2000:
         cv2.imwrite(OUTPUT_FOLDER + f'\\others\\edges-{image_name}.jpg', edges)
         return
+    
+    global outer_coords
+    outer_coords = [x_min, y_min, x_max, y_max]
+    
     update_output_json('outer', image_name, x_min,y_min,x_max,y_max)
     return (x_min, y_min, x_max, y_max)
 
@@ -295,8 +292,16 @@ def detect_inner_frame(image: np.ndarray, image_name:str, image_color: str) -> O
     if not (0.95 < ((y_max - y_min) / (x_max - x_min + .00001)) < 1.05): #for 1:1 maps
     #if y_max - y_min < 1400 or x_max - x_min < 1400:
         return 1
-    
-    update_output_json('inner', image_name, x_min,y_min,x_max,y_max)
+    print("would be non-simple cut")
+    return 1
+
+    global outer_coords    
+    update_output_json('inner', image_name, 
+                       outer_coords[0] + x_min,
+                       outer_coords[1] + y_min,
+                       outer_coords[0] + x_max,
+                       outer_coords[1] + y_max)
+    #sys.exit(11)
     return (x_min, y_min, x_max, y_max)
     
 def update_output_json(type:str, image_name:str, x_min:int,y_min:int,x_max:int,y_max:int):
@@ -340,7 +345,7 @@ def crop_map_image(image_path: str, image_name: str, output_path, padding: int =
             print(f"{image_name} no outer")
             print("")
             JSON_OUTPUT.append({
-                'name': image_name,
+                'image': image_name,
                 'status': 'OUTER FRAME NOT FOUND'})
             global_failed_colors.append(color)
             failed_processing.append(image_path)
@@ -376,10 +381,10 @@ def crop_map_image(image_path: str, image_name: str, output_path, padding: int =
             print("Applying simple cut")
             print("")
             x_min, y_min, x_max, y_max = corners
-            x_min = x_min + 65
-            x_max = x_max - 65
-            y_min = y_min + 65
-            y_max = y_max - 65
+            x_min = x_min + 60
+            x_max = x_max - 60
+            y_min = y_min + 60
+            y_max = y_max - 60
 
             # Apply padding
             cropped_inner = image[y_min:y_max, x_min:x_max]
@@ -392,7 +397,7 @@ def crop_map_image(image_path: str, image_name: str, output_path, padding: int =
             x_max = min(cropped_outer.shape[1], x_max + padding)
             y_max = min(cropped_outer.shape[0], y_max + padding)
             cropped_inner = cropped_outer[y_min:y_max, x_min:x_max]
-            update_output_json('inner', image_name, x_min,y_min,x_max,y_max)
+            #update_output_json('inner', image_name, x_min,y_min,x_max,y_max)
 
         #decode to handle ut8 - åäö
         success, image_encoded = cv2.imencode('.jpg', cropped_inner)

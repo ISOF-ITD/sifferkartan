@@ -3,9 +3,12 @@ import numpy as np
 from pathlib import Path
 import json, sys
 
-INPUT_FOLDER = sys.argv[1]
-OUTPUT_FOLDER = sys.argv[2]
-JSON_GEOREFERENCE = sys.argv[3]
+#INPUT_FOLDER = sys.argv[1]
+#OUTPUT_FOLDER = sys.argv[2]
+#JSON_GEOREFERENCE = sys.argv[3]
+INPUT_FOLDER = []
+OUTPUT_FOLDER = []
+JSON_GEOREFERENCE = []
 JSON_OUTPUT = [] # append per action taken for each image
 JSON_MAP_INFO = ""
 RUN_MODE = 0
@@ -13,12 +16,15 @@ RUN_MODE = 0
 def main():
     if len(sys.argv) < 4:
         print("Usage: python program input-folder output-folder json-input")
+        print("Usage processing original: python program input-folder-original output-folder json-input-ekonomiska-kartan json-input-info.json")
         sys.exit(1)
     if len(sys.argv) > 4:
         global RUN_MODE
         RUN_MODE = 1
         global JSON_MAP_INFO
         JSON_MAP_INFO= sys.argv[4]
+    global INPUT_FOLDER, OUTPUT_FOLDER, JSON_GEOREFERENCE
+    INPUT_FOLDER, OUTPUT_FOLDER, JSON_GEOREFERENCE = sys.argv[1],sys.argv[2],sys.argv[3]
     batch_process_maps(INPUT_FOLDER, OUTPUT_FOLDER, JSON_GEOREFERENCE)
     print(sys.argv)
     #with open(OUTPUT_FOLDER+'\\geotiff-info.json', 'w') as f:
@@ -99,7 +105,7 @@ def process_original(tif_path, geo_info, map_info, kartbladsid, output_path):
         # Math to get corners of the map.
         coords_map_set = coords_map_info[0]['outer']['coords'] 
         coords_map_set += coords_map_info[0]['inner']['coords'] 
-        coords_map_set = [ coords_map_set[0] + coords_map_set[4],
+        coords_map = [ coords_map_set[0] + coords_map_set[4], #unused
                           coords_map_set[1] + coords_map_set[5],
                           coords_map_set[2] - (coords_map_set[6] - coords_map_set[2]),
                           coords_map_set[3] - (coords_map_set[7] - coords_map_set[3])] 
@@ -121,11 +127,19 @@ def process_original(tif_path, geo_info, map_info, kartbladsid, output_path):
     # Map them to image corners in the same order
     gcps = []
     image_corners = [
-        (coords_map_set[0], coords_map_set[3]),                 
-        (coords_map_set[0], coords_map_set[1]),                  
-        (coords_map_set[2], coords_map_set[1]),                  
-        (coords_map_set[2], coords_map_set[3]),                  
+        (coords_map_set[4], coords_map_set[7]),                 
+        (coords_map_set[4], coords_map_set[5]),                  
+        (coords_map_set[6], coords_map_set[5]),                  
+        (coords_map_set[6], coords_map_set[7]),                  
     ]
+
+    #image_corners = [
+    #    (coords_map[0], coords_map[3]),                 
+    #    (coords_map[0], coords_map[1]),                  
+    #    (coords_map[2], coords_map[1]),                  
+    #    (coords_map[2], coords_map[3]),                  
+    #]
+
 
     for i, (poly_corner, img_corner) in enumerate(zip(polygon_corners, image_corners)):
         gcp = gdal.GCP(poly_corner[0], poly_corner[1], 0, img_corner[0], img_corner[1])
@@ -167,13 +181,6 @@ def process_original(tif_path, geo_info, map_info, kartbladsid, output_path):
     print(f"GeoTIFF created and reprojected: {output_path}")
     return True
 
-    sys.exit(0)
-    sys.exit(0)
-    sys.exit(0)
-    sys.exit(0)
-    sys.exit(0)
-    return True
-
 
 def process_tif(tif_path, geo_info, kartbladsid, output_path):
     """
@@ -189,8 +196,9 @@ def process_tif(tif_path, geo_info, kartbladsid, output_path):
     
     # Find the feature matching the kartbladsid
     coords = None
+    just_kartbladsid = kartbladsid.rsplit(' ')[0]
     for feat in geo_info['features']:
-        if feat['properties']['kartbladsid'] == kartbladsid:
+        if feat['properties']['kartbladsid'] == just_kartbladsid:
             coords = feat['geometry']['coordinates'][0]
             break
     
