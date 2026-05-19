@@ -381,10 +381,11 @@ def crop_map_image(image_path: str, image_name: str, output_path, padding: int =
             print("Applying simple cut")
             print("")
             x_min, y_min, x_max, y_max = corners
-            x_min = x_min + 60
-            x_max = x_max - 60
-            y_min = y_min + 60
-            y_max = y_max - 60
+            simple_cut = 50 # px
+            x_min = x_min + simple_cut
+            x_max = x_max - simple_cut
+            y_min = y_min + simple_cut
+            y_max = y_max - simple_cut
 
             # Apply padding
             cropped_inner = image[y_min:y_max, x_min:x_max]
