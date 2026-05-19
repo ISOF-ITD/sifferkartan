@@ -1,7 +1,7 @@
 from osgeo import gdal, osr
 import numpy as np
 from pathlib import Path
-import json, sys
+import json, sys, re
 
 #INPUT_FOLDER = sys.argv[1]
 #OUTPUT_FOLDER = sys.argv[2]
@@ -26,7 +26,6 @@ def main():
     global INPUT_FOLDER, OUTPUT_FOLDER, JSON_GEOREFERENCE
     INPUT_FOLDER, OUTPUT_FOLDER, JSON_GEOREFERENCE = sys.argv[1],sys.argv[2],sys.argv[3]
     batch_process_maps(INPUT_FOLDER, OUTPUT_FOLDER, JSON_GEOREFERENCE)
-    print(sys.argv)
     #with open(OUTPUT_FOLDER+'\\geotiff-info.json', 'w') as f:
     #    json.dump(JSON_OUTPUT, f, indent=4)
 
@@ -46,6 +45,7 @@ def batch_process_maps(input_folder: str, output_folder: str, json_path: str, lo
         sys.exit(1)
 
     successful = 0
+    failed=0
     # Load geospatial data
     with open(json_path, 'r') as f:
         geo_info = json.load(f)
@@ -55,18 +55,27 @@ def batch_process_maps(input_folder: str, output_folder: str, json_path: str, lo
     
 
     # get the json info with the Feature -> kartbladsid = img_file.name
-    for img_file in image_files:
+    for i, img_file in enumerate(image_files, 1):
         output_filename = img_file.name.rsplit(".")[0] + ".tiff"
         output_file = output_path / output_filename
+        print(f"[{failed}][{i}/{len(image_files)}] Processing: {img_file.name}")
+        
         if RUN_MODE == 0:
             id = img_file.name.rsplit("_")[1].rsplit("-cut")[0]
+            id = img_file.name[0:8]
             if process_tif(str(img_file), geo_info, id, str(output_file)):
                 successful += 1
+            else:
+                failed += 1
         elif RUN_MODE == 1:
             id = img_file.name.rsplit("_")[1]
+            id = img_file.name[0:8]
             if process_original(str(img_file), geo_info, map_info, id, str(output_file)):
                 successful += 1
+            else:
+                failed += 1
     
+    print("")
     print(f"Successfully processed {successful}/{len(image_files)} images")
 
 def process_original(tif_path, geo_info, map_info, kartbladsid, output_path):
@@ -81,10 +90,16 @@ def process_original(tif_path, geo_info, map_info, kartbladsid, output_path):
     # FIX ROTATION, RIGHT NOW ITS A BIT OFF. CHECK OUTPUT, FIX.
     
     coords_geo_info = None
-    print(kartbladsid)
-    just_kartbladsid = kartbladsid.rsplit(' ')[0]
+    just_kartbladsid = "----"
+    if '-' in kartbladsid:
+        just_kartbladsid = kartbladsid.rsplit('-')[0]
+    elif '_' in kartbladsid:
+        just_kartbladsid = kartbladsid.rsplit('_')[1]
+        just_kartbladsid = re.split(r'[^1-9a-ö]', just_kartbladsid)[0]
+        print(just_kartbladsid)
+    
     for feat in geo_info['features']:
-        if feat['properties']['kartbladsid'] == just_kartbladsid:
+        if just_kartbladsid in feat['properties']['kartbladsid']:
             coords_geo_info = feat['geometry']['coordinates'][0]
             break
 
@@ -132,14 +147,6 @@ def process_original(tif_path, geo_info, map_info, kartbladsid, output_path):
         (coords_map_set[6], coords_map_set[5]),                  
         (coords_map_set[6], coords_map_set[7]),                  
     ]
-
-    #image_corners = [
-    #    (coords_map[0], coords_map[3]),                 
-    #    (coords_map[0], coords_map[1]),                  
-    #    (coords_map[2], coords_map[1]),                  
-    #    (coords_map[2], coords_map[3]),                  
-    #]
-
 
     for i, (poly_corner, img_corner) in enumerate(zip(polygon_corners, image_corners)):
         gcp = gdal.GCP(poly_corner[0], poly_corner[1], 0, img_corner[0], img_corner[1])
@@ -196,14 +203,16 @@ def process_tif(tif_path, geo_info, kartbladsid, output_path):
     
     # Find the feature matching the kartbladsid
     coords = None
-    just_kartbladsid = kartbladsid.rsplit(' ')[0]
-    for feat in geo_info['features']:
-        if feat['properties']['kartbladsid'] == just_kartbladsid:
-            coords = feat['geometry']['coordinates'][0]
-            break
+    just_kartbladsid = "----"
+    if '-' in kartbladsid:
+        just_kartbladsid = kartbladsid.rsplit('-')[0]
+    elif '_' in kartbladsid:
+        just_kartbladsid = kartbladsid.rsplit('_')[1]
+        just_kartbladsid = re.split(r'[^1-9a-ö]', just_kartbladsid)[0]
+        print(just_kartbladsid)
     
     if coords is None:
-        raise ValueError(f"kartbladsid '{kartbladsid}' not found in geo_info")
+        raise ValueError(f"kartbladsid '{kartbladsid}' not found in geo_info ('{just_kartbladsid}')")
     
     # Open source TIF
     source = gdal.Open(tif_path)
