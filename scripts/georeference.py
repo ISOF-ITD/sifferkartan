@@ -45,7 +45,8 @@ def batch_process_maps(input_folder: str, output_folder: str, json_path: str, lo
         sys.exit(1)
 
     successful = 0
-    failed=0
+    failed_data=0
+    failed_other=0
     # Load geospatial data
     with open(json_path, 'r') as f:
         geo_info = json.load(f)
@@ -58,22 +59,28 @@ def batch_process_maps(input_folder: str, output_folder: str, json_path: str, lo
     for i, img_file in enumerate(image_files, 1):
         output_filename = img_file.name.rsplit(".")[0] + ".tiff"
         output_file = output_path / output_filename
-        print(f"[{failed}][{i}/{len(image_files)}] Processing: {img_file.name}")
+        print(f"[{failed_data}][{failed_other}][{i}/{len(image_files)}] Processing: {img_file.name}")
         
         if RUN_MODE == 0:
             id = img_file.name.rsplit("_")[1].rsplit("-cut")[0]
             id = img_file.name[0:8]
-            if process_tif(str(img_file), geo_info, id, str(output_file)):
+            result=process_tif(str(img_file), geo_info, id, str(output_file))
+            if result == True:
                 successful += 1
-            else:
-                failed += 1
+            elif result == 1:
+                failed_other += 1
+            elif result == False:
+                failed_data += 1
         elif RUN_MODE == 1:
             id = img_file.name.rsplit("_")[1]
             id = img_file.name[0:8]
-            if process_original(str(img_file), geo_info, map_info, id, str(output_file)):
+            result = process_original(str(img_file), geo_info, map_info, id, str(output_file))
+            if result == True:
                 successful += 1
-            else:
-                failed += 1
+            elif result == 1:
+                failed_other += 1
+            elif result == False:
+                failed_data += 1
     
     print("")
     print(f"Successfully processed {successful}/{len(image_files)} images")
@@ -97,8 +104,7 @@ def process_original(tif_path, geo_info, map_info, kartbladsid, output_path):
     elif '_' in kartbladsid:
         just_kartbladsid = kartbladsid.rsplit('_')[1]
         just_kartbladsid = re.split(r'[^0-9a-öA-Ö]', just_kartbladsid)[0]
-        print(just_kartbladsid)
-    
+
     for feat in geo_info['features']:
         if just_kartbladsid in feat['properties']['kartbladsid']:
             coords_geo_info = feat['geometry']['coordinates'][0]
@@ -110,11 +116,10 @@ def process_original(tif_path, geo_info, map_info, kartbladsid, output_path):
         
     coords_map_info = []
     for feat in map_info:
-        if just_kartbladsid in feat['name']:
+        if kartbladsid in feat['name']:
             coords_map_info.append(feat['data'])
-    
     coords_map_set = []
-    if coords_map_info is None or 'inner' not in str(coords_map_info):
+    if 'inner' not in str(coords_map_info):
         print(f"kartbladsid '{kartbladsid}' does not have needed data")
         return False
     else:
