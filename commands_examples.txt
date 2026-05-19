@@ -1,8 +1,0 @@
-# Cut maps
-python scripts\cutmaps.py ..\map ..\map-out
-
-# Georeference original maps with table of contents
-python scripts\georeference.py ..\map ..\map-out\geotif ..\jsons-sifferkartan\sifferkartor_ekonomiska_kartan_geo.geojson ..\map-out\info.json
-
-# Georeference cut maps
-python scripts\georeference.py ..\map-out ..\map-out\geotif ..\jsons-sifferkartan\sifferkartor_ekonomiska_kartan_geo.geojson
