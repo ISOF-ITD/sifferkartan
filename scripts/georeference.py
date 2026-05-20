@@ -3,9 +3,6 @@ import numpy as np
 from pathlib import Path
 import json, sys, re
 
-#INPUT_FOLDER = sys.argv[1]
-#OUTPUT_FOLDER = sys.argv[2]
-#JSON_GEOREFERENCE = sys.argv[3]
 INPUT_FOLDER = []
 OUTPUT_FOLDER = []
 JSON_GEOREFERENCE = []
@@ -13,15 +10,19 @@ JSON_OUTPUT = [] # append per action taken for each image
 JSON_MAP_INFO = ""
 RUN_MODE = 0
 
+## TODO:
+## Mappstruktur ska behållas. Skapa mappnamnet för de kartor som behandlas.
+## Titta även på att läsa från undermappar vid inläsning av map-out
+## Namnen ska ändras till ***_modified_auto.tiff eller nått sånt.
+
 def main():
     if len(sys.argv) < 4:
         print("Usage: python program input-folder output-folder json-input")
         print("Usage processing original: python program input-folder-original output-folder json-input-ekonomiska-kartan json-input-info.json")
         sys.exit(1)
     if len(sys.argv) > 4:
-        global RUN_MODE
+        global RUN_MODE, JSON_MAP_INFO
         RUN_MODE = 1
-        global JSON_MAP_INFO
         JSON_MAP_INFO= sys.argv[4]
     global INPUT_FOLDER, OUTPUT_FOLDER, JSON_GEOREFERENCE
     INPUT_FOLDER, OUTPUT_FOLDER, JSON_GEOREFERENCE = sys.argv[1],sys.argv[2],sys.argv[3]
@@ -182,7 +183,8 @@ def process_original(tif_path, geo_info, map_info, kartbladsid, output_path):
     warp_options = gdal.WarpOptions(
         srcSRS=src_srs,
         dstSRS=dst_srs,
-        resampleAlg=gdal.GRA_Bilinear
+        resampleAlg=gdal.GRA_Bilinear,
+        creationOptions=['COMPRESS=JPEG', 'JPEG_QUALITY=25']
     )
     
     gdal.Warp(output_path, temp_output, options=warp_options)
@@ -277,7 +279,8 @@ def process_tif(tif_path, geo_info, kartbladsid, output_path):
     warp_options = gdal.WarpOptions(
         srcSRS=src_srs,
         dstSRS=dst_srs,
-        resampleAlg=gdal.GRA_Bilinear
+        resampleAlg=gdal.GRA_Bilinear,
+        creationOptions=['COMPRESS=JPEG', 'JPEG_QUALITY=25']
     )
     
     gdal.Warp(output_path, temp_output, options=warp_options)
