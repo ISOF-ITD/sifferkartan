@@ -46,8 +46,8 @@ def batch_process_maps(input_folder: str, output_folder: str, json_path: str, lo
         sys.exit(1)
 
     successful = 0
-    failed_data=0
-    failed_other=0
+    failed_data = 0
+    failed_other = 0
     # Load geospatial data
     with open(json_path, 'r') as f:
         geo_info = json.load(f)
@@ -61,27 +61,21 @@ def batch_process_maps(input_folder: str, output_folder: str, json_path: str, lo
         output_filename = img_file.name.rsplit(".")[0] + ".tiff"
         output_file = output_path / output_filename
         print(f"[{failed_data}][{failed_other}][{i}/{len(image_files)}] Processing: {img_file.name}")
-        
         if RUN_MODE == 0:
-            id = img_file.name.rsplit("_")[1].rsplit("-cut")[0]
             id = img_file.name[0:8]
-            result=process_tif(str(img_file), geo_info, id, str(output_file))
-            if result == True:
-                successful += 1
-            elif result == 1:
-                failed_other += 1
-            elif result == False:
-                failed_data += 1
+            result = process_tif(str(img_file), geo_info, id, str(output_file))
         elif RUN_MODE == 1:
-            id = img_file.name.rsplit("_")[1]
             id = img_file.name[0:8]
             result = process_original(str(img_file), geo_info, map_info, id, str(output_file))
-            if result == True:
+
+        match result:
+            case True:
                 successful += 1
-            elif result == 1:
-                failed_other += 1
-            elif result == False:
+            case False:
                 failed_data += 1
+            case 1:
+                failed_other += 1
+
     
     print("")
     print(f"Successfully processed {successful}/{len(image_files)} images")
@@ -94,22 +88,14 @@ def process_original(tif_path, geo_info, map_info, kartbladsid, output_path):
     Use with json-output from cutmaps.py, which handles corner detection. 
     '''
 
-    # TODO:
-    # FIX ROTATION, RIGHT NOW ITS A BIT OFF. CHECK OUTPUT, FIX.
-    
     coords_geo_info = None
-    just_kartbladsid = "----"
-    if '-' in kartbladsid:
-        just_kartbladsid = kartbladsid.rsplit('-')[0]
-        just_kartbladsid = re.split(r'[^0-9a-öA-Ö]', just_kartbladsid)[0]
-    elif '_' in kartbladsid:
-        just_kartbladsid = kartbladsid.rsplit('_')[1]
-        just_kartbladsid = re.split(r'[^0-9a-öA-Ö]', just_kartbladsid)[0]
+    just_kartbladsid = re.search(r'([A-Za-z0-9]{4,5})', kartbladsid).group(1)
 
     for feat in geo_info['features']:
         if just_kartbladsid in feat['properties']['kartbladsid']:
             coords_geo_info = feat['geometry']['coordinates'][0]
             break
+    
 
     if coords_geo_info is None:
         print(f"kartbladsid '{kartbladsid}' not found in geo_info")
@@ -212,15 +198,13 @@ def process_tif(tif_path, geo_info, kartbladsid, output_path):
     
     # Find the feature matching the kartbladsid
     coords = None
-    just_kartbladsid = "----"
-    if '-' in kartbladsid:
-        just_kartbladsid = kartbladsid.rsplit('-')[0]
-        just_kartbladsid = re.split(r'[^0-9a-öA-Ö]', just_kartbladsid)[0]
-    elif '_' in kartbladsid:
-        just_kartbladsid = kartbladsid.rsplit('_')[1]
-        just_kartbladsid = re.split(r'[^0-9a-öA-Ö]', just_kartbladsid)[0]
+    just_kartbladsid = re.search(r'([A-Za-z0-9]{4,5})', kartbladsid).group(1)
 
-    
+    for feat in geo_info['features']:
+        if just_kartbladsid in feat['properties']['kartbladsid']:
+            coords = feat['geometry']['coordinates'][0]
+            break
+
     if coords is None:
         raise ValueError(f"kartbladsid '{kartbladsid}' not found in geo_info ('{just_kartbladsid}')")
     
