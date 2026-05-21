@@ -105,7 +105,7 @@ def find_largest_rectangle(
             0.95 < (h / w) < 1.05
         ):  # 4000px for tif, 2000px for jpg. Look if 1:1
             cv2.rectangle(image2, (x, y), (x + w, y + h), (0, 255, 0), 3)
-            cv2.imwrite(OUTPUT_FOLDER + f"\\others\\rect-{image_name}.jpg", image2)
+            #cv2.imwrite(OUTPUT_FOLDER + f"\\others\\rect-{image_name}.jpg", image2)
             # print(f"No outer rectangle found for {image_name}")
             # print("")
             # JSON_OUTPUT.append({
@@ -177,7 +177,7 @@ def detect_outer_frame(
         return rectangle
 
     if lines is None:
-        cv2.imwrite(OUTPUT_FOLDER + f"\\others\\edges-{image_name}.jpg", edges)
+        #cv2.imwrite(OUTPUT_FOLDER + f"\\others\\edges-{image_name}.jpg", edges)
         return None
 
     # Separate horizontal and vertical lines
@@ -198,7 +198,7 @@ def detect_outer_frame(
             vertical_lines.append((min(x1, x2), max(x1, x2), min(y1, y2), max(y1, y2)))
 
     if not horizontal_lines or not vertical_lines:
-        cv2.imwrite(OUTPUT_FOLDER + f"\\others\\edges-{image_name}.jpg", edges)
+        #cv2.imwrite(OUTPUT_FOLDER + f"\\others\\edges-{image_name}.jpg", edges)
         return None
 
     # Find bounding box from detected lines
@@ -210,7 +210,7 @@ def detect_outer_frame(
     ]
 
     if not x_coords or not y_coords:
-        cv2.imwrite(OUTPUT_FOLDER + f"\\others\\edges-{image_name}.jpg", edges)
+        #cv2.imwrite(OUTPUT_FOLDER + f"\\others\\edges-{image_name}.jpg", edges)
         return None
 
     # Use clustering to find the actual map boundaries (reject outliers)
@@ -227,7 +227,7 @@ def detect_outer_frame(
         0.95 < ((y_max - y_min) / (x_max - x_min + 0.00001)) < 1.05
     ):  # for 1:1 maps
         # if y_max - y_min < 2000 or x_max - x_min < 2000:
-        cv2.imwrite(OUTPUT_FOLDER + f"\\others\\edges-{image_name}.jpg", edges)
+        #cv2.imwrite(OUTPUT_FOLDER + f"\\others\\edges-{image_name}.jpg", edges)
         return
 
     global outer_coords
@@ -275,7 +275,7 @@ def detect_inner_frame(
 
     if lines is None:
         print("lines are none")
-        cv2.imwrite(OUTPUT_FOLDER + f"\\others\\egdes2-{image_name}.jpg", edges)
+        #cv2.imwrite(OUTPUT_FOLDER + f"\\others\\egdes2-{image_name}.jpg", edges)
         return None
 
     # Separate horizontal and vertical lines
@@ -297,7 +297,7 @@ def detect_inner_frame(
 
     if not horizontal_lines or not vertical_lines:
         print("hori or vert lines are none")
-        cv2.imwrite(OUTPUT_FOLDER + f"\\others\\egdes2-{image_name}.jpg", edges)
+        #cv2.imwrite(OUTPUT_FOLDER + f"\\others\\egdes2-{image_name}.jpg", edges)
         return None
 
     # Find bounding box from detected lines
@@ -310,7 +310,7 @@ def detect_inner_frame(
 
     if not x_coords or not y_coords:
         print("x,y cords are none")
-        cv2.imwrite(OUTPUT_FOLDER + f"\\others\\egdes2-{image_name}.jpg", edges)
+        #cv2.imwrite(OUTPUT_FOLDER + f"\\others\\egdes2-{image_name}.jpg", edges)
         return None
 
     # Use clustering to find the actual map boundaries (reject outliers)
@@ -416,9 +416,9 @@ def crop_map_image(
             print("")
             global_failed_colors.append(color)
             failed_processing.append(image_path)
-            cv2.imwrite(
-                OUTPUT_FOLDER + f"\\others\\1outer-{image_name}.jpg", cropped_outer
-            )
+            #cv2.imwrite(
+            #    OUTPUT_FOLDER + f"\\others\\1outer-{image_name}.jpg", cropped_outer
+            #)
             return 3
         elif corners_inner == 1:
             print("Applying simple cut")
@@ -524,12 +524,6 @@ class NumpyEncoder(json.JSONEncoder):
 
 # Usage
 if __name__ == "__main__":
-    # Single image
-    # crop_map_image("map.jpg", "map_cropped.jpg", output_filepath, padding=5)
-
-    # Batch processing
-    # batch_process_maps("./input_maps", "./output_maps", padding=5)
-    # list("")
     if len(sys.argv) < 3:
         print("Usage: python program input-folder output-folder")
         sys.exit(1)
