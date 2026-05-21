@@ -406,7 +406,7 @@ def crop_map_image(
         # Save result
         # cv2.imwrite(OUTPUT_FOLDER + f'\\others\\1outer-{image_name}.jpg', cropped_outer)
         if cropped_outer is None:
-            print(f"Cropped outer is none")
+            print("Cropped outer is none")
             global_failed_colors.append(color)
             return 2
 
@@ -449,7 +449,7 @@ def crop_map_image(
             with open(output_path, "wb") as f:
                 f.write(image_encoded.tobytes())
         else:
-            print(f"ERROR: Could not encode image")
+            print("ERROR: Could not encode image")
         # print("")
         # print(f"Successfully cropped: {image_path} → {output_path}")
         return 1
@@ -484,8 +484,10 @@ def batch_process_maps(input_dir: str, output_dir: str, padding: int = 0):
     result_map = {1: "successful", 2: "outer", 3: "inner"}
 
     for i, img_file in enumerate(image_files, 1):
+        subdir_path = Path(output_dir) / img_file.parent.stem
+        subdir_path.mkdir(parents=True, exist_ok=True)
         output_filename = img_file.stem + "-cut.jpg"
-        output_file = output_path / output_filename
+        output_file = subdir_path / output_filename
         JSON_OUTPUT.append({"name": img_file.name, "status": "unknown", "data": {}})
         print(f"[{i}/{len(image_files)}] Processing: {img_file.name}")
         result = crop_map_image(str(img_file), img_file.name, output_file, padding)
@@ -498,7 +500,7 @@ def batch_process_maps(input_dir: str, output_dir: str, padding: int = 0):
     print(f"Outer failed {results['outer']}/{len(image_files)} images")
     print(f"Inner failed {results['inner']}/{len(image_files)} images")
     print("")
-    print(f"Colors:")
+    print("Colors:")
     for item in list(set(global_colors)):
         print(
             f"{item}: {global_colors.count(item)}, {global_failed_colors.count(item)} failed"

@@ -48,12 +48,8 @@ def batch_process_maps(
     output_path = Path(output_folder)
     output_path.mkdir(parents=True, exist_ok=True)
 
-    # Process all common image formats
-    image_files = (
-        list(input_path.glob("*.jpg"))
-        + list(input_path.glob("*.png"))
-        + list(input_path.glob("*.tif"))
-    )
+    extensions = ["*.jpg", "*.png", "*.tif"]
+    image_files = [f for ext in extensions for f in input_path.glob(f"**/{ext}")]
 
     print(f"Found {len(image_files)} images to process")
     if len(image_files) == 0:
@@ -71,8 +67,10 @@ def batch_process_maps(
 
     # get the json info with the Feature -> kartbladsid = img_file.name
     for i, img_file in enumerate(image_files, 1):
-        output_filename = img_file.name.rsplit(".")[0] + ".tiff"
-        output_file = output_path / output_filename
+        subdir_path = Path(output_folder) / img_file.parent.stem
+        subdir_path.mkdir(parents=True, exist_ok=True)
+        output_filename = img_file.stem + ".tiff"
+        output_file = subdir_path / output_filename
         print(
             f"[{failed_data}][{failed_other}][{i}/{len(image_files)}] Processing: {img_file.name}"
         )
@@ -129,12 +127,6 @@ def process_original(tif_path, geo_info, map_info, kartbladsid, output_path):
         # Math to get corners of the map.
         coords_map_set = coords_map_info[0]["outer"]["coords"]
         coords_map_set += coords_map_info[0]["inner"]["coords"]
-        coords_map = [
-            coords_map_set[0] + coords_map_set[4],  # unused
-            coords_map_set[1] + coords_map_set[5],
-            coords_map_set[2] - (coords_map_set[6] - coords_map_set[2]),
-            coords_map_set[3] - (coords_map_set[7] - coords_map_set[3]),
-        ]
 
     # Open source TIF
     source = gdal.Open(tif_path)
