@@ -74,7 +74,6 @@ def get_dominant_color(image_path):
         print("unknown color range, check image")
         print(f"Dominant color (RGB): {dominant[0]},{dominant[1]},{dominant[2]}")
         print(f"{image_path}")
-        sys.exit(1)
 
     return color
 
