@@ -69,19 +69,24 @@ def batch_process_maps(
     for i, img_file in enumerate(image_files, 1):
         subdir_path = Path(output_folder) / img_file.parent.stem
         subdir_path.mkdir(parents=True, exist_ok=True)
-        output_filename = img_file.stem + ".tiff"
+        output_filename = img_file.stem + "_modified_auto.tiff"
         output_file = subdir_path / output_filename
         print(
             f"[{failed_data}][{failed_other}][{i}/{len(image_files)}] Processing: {img_file.name}"
         )
-        if RUN_MODE == 0:
-            id = img_file.name[0:8]
-            result = process_tif(str(img_file), geo_info, id, str(output_file))
-        elif RUN_MODE == 1:
-            id = img_file.name[0:8]
-            result = process_original(
-                str(img_file), geo_info, map_info, id, str(output_file)
-            )
+        try:
+            if RUN_MODE == 0:
+                id = img_file.name[0:8]
+                result = process_tif(str(img_file), geo_info, id, str(output_file))
+            elif RUN_MODE == 1:
+                id = img_file.name[0:8]
+                result = process_original(
+                    str(img_file), geo_info, map_info, id, str(output_file)
+                )
+
+        except Exception as e:
+            print(f"Error processing {img_file.name}: {e}")
+            result = 1
 
         match result:
             case True:
