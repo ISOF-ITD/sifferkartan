@@ -15,8 +15,8 @@ Generell användning
 
 | Skript-namn | Funktion |
 |---|---|
-| batch_rename.py | Byter namn på alla filer i input-folder till xxx_modified_auto.tiff |
-| compress-quality25.py | För komprimering vid användning för GeoServer ImageMosaic när man behöver klippa filerna med GIMP |
+| batch_rename.py | Byter namn på alla bild-filer i input-folder till xxx_modified_auto.tiff |
+| compress-quality25.py | För komprimering vid användning för GeoServer ImageMosaic när man behöver klippa bild-filerna med GIMP |
 | compressmaps.py | Komprimerar kartfiler till jpeg in tiff, 25% quality |
 | cutmaps.py | Beskär ekonomiska kartor för använding i rastermosaik |
 | find-handwriting.py | Ett test att automatiskt hitta siffror på kartor, i dagsläget hittar den endast röda siffror |
