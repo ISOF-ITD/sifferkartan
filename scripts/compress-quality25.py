@@ -5,6 +5,8 @@ from osgeo import gdal
 def compress_tif_to_jpeg(input_file, output_file, jpeg_quality=25):
     """
     Compress a GeoTIFF file using JPEG compression via GDAL Python library.
+    Separates RGB bands from alpha, applies YCBCR photometric interpretation,
+    and creates an internal mask for proper transparency in GeoServer.
     
     Args:
         input_file (str): Path to input GeoTIFF file
@@ -21,11 +23,40 @@ def compress_tif_to_jpeg(input_file, output_file, jpeg_quality=25):
             print(f"✗ Failed to open {input_file}")
             return False
         
+        # Get band count
+        band_count = source_ds.RasterCount
+        
+        # Determine which bands to use
+        if band_count >= 4:
+            # Has alpha band: use RGB (1-3) + alpha mask (4)
+            bands = [1, 2, 3]
+            mask_band = 4
+        elif band_count >= 3:
+            # RGB only, no alpha
+            bands = [1, 2, 3]
+            mask_band = None
+        else:
+            # Grayscale or single band
+            bands = list(range(1, band_count + 1))
+            mask_band = None
+        
         # Create translate options
+        creation_options = [
+            'COMPRESS=JPEG',
+            f'JPEG_QUALITY={jpeg_quality}',
+            'TILED=YES',
+            'PHOTOMETRIC=YCBCR'  # Now safe to use with 3-band RGB
+        ]
+        
         translate_options = gdal.TranslateOptions(
             format='GTiff',
-            creationOptions=['COMPRESS=JPEG', f'JPEG_QUALITY={jpeg_quality}']
+            bandList=bands,
+            maskBand=mask_band if mask_band else None,
+            creationOptions=creation_options
         )
+        
+        # Enable internal GDAL TIFF mask
+        gdal.SetConfigOption('GDAL_TIFF_INTERNAL_MASK', 'YES')
         
         # Translate (compress) the file
         output_ds = gdal.Translate(output_file, source_ds, options=translate_options)
@@ -33,6 +64,12 @@ def compress_tif_to_jpeg(input_file, output_file, jpeg_quality=25):
         if output_ds is None:
             print(f"✗ Failed to compress {input_file}")
             return False
+        
+        # If mask band was specified, create the internal mask
+        if mask_band:
+            output_band = output_ds.GetRasterBand(1)
+            if output_band:
+                output_band.CreateMask(gdal.GMF_PER_DATASET)
         
         # Close datasets
         output_ds = None
