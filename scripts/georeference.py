@@ -218,8 +218,15 @@ def process_tif(tif_path, geo_info, kartbladsid, output_path):
     coords = None
     just_kartbladsid = re.search(r"([A-Za-z0-9]{4,5})", kartbladsid).group(1)
 
+    #for feat in geo_info["features"]:
+    #    if just_kartbladsid in feat["properties"]["kartbladsid"]:
+    #        coords = feat["geometry"]["coordinates"][0]
+    #        break
+
+    # This was for Gotland
+    # Can be used when the name of the file doesnt contain kartbladsid.
     for feat in geo_info["features"]:
-        if just_kartbladsid in feat["properties"]["kartbladsid"]:
+        if kartbladsid in feat["properties"]["sok"]:
             coords = feat["geometry"]["coordinates"][0]
             break
 
