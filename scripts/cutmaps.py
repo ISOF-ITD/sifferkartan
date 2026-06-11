@@ -168,8 +168,21 @@ def detect_outer_frame(
             edges, 1, np.pi / 180, 50, minLineLength=200, maxLineGap=0
         )
     else:
-        print(f"map-type unknown. skipping {image_name}")
-        return
+        print(f"map-type unknown. using default canny {image_name}")
+        # Apply slight blur to reduce noise
+        blurred = gray
+        # blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+        #blurred = cv2.blur(blurred, (5, 5))
+        # blurred = cv2.blur(blurred,(5,5))
+        #blurred = cv2.blur(blurred, (3, 3))
+
+        # Detect edges (corner marks are typically high-contrast)
+        edges = cv2.Canny(blurred, 50, 120)
+
+        # Detect lines using Hough Line Transform
+        lines = cv2.HoughLinesP(
+            edges, 1, np.pi / 180, 50, minLineLength=200, maxLineGap=0
+        )
 
     rectangle = find_largest_rectangle(image, image_name, edges)
     if rectangle is not None:
@@ -528,7 +541,7 @@ if __name__ == "__main__":
         sys.exit(1)
     batch_process_maps(INPUT_FOLDER, OUTPUT_FOLDER, 0)
     # print("writing json")
-    with open(OUTPUT_FOLDER + "\\info.json", "w", encoding="utf-8") as f:
+    with open(Path(OUTPUT_FOLDER) / "info.json", "w", encoding="utf-8") as f:
         json.dump(JSON_OUTPUT, f, ensure_ascii=False, indent=4, cls=NumpyEncoder)
-
+    
     sys.exit(0)
