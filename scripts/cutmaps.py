@@ -16,14 +16,48 @@ global_failed_colors = []
 failed_processing = []
 outer_coords = []
 
+"""
+This file's use case is to cut away the space around maps. Its focus is "ekonomiska kartbilder" and currently only handles these.
+The workflow from start to finish with these files are
+cutmaps -> georeference (-> compressmaps) # Compressmaps is used if more compression of the files are needed.
+
+Usage of this file:
+    python3 cutmaps input-folder output-folder
+
+Where input-folder contains the images of maps
+and output-folder is where to put them.
+
+## The uncommented imwrite's can be uncommented for debugging the different outputs.
+
+The workflow of this file is:
+
+Start -> 
+Read what image should be modified from input-folder ->
+loop through one image at a time ->loop(
+    get dominant color from image, used for understanding what type of map it is ->
+    find biggest rectangle in image - Outer ->(
+        apply modifications to the base image to make it easier to find the rectangle ->
+        look for rectangles straight up OR use edges to construct them if no explicit rectangles has been found ->
+        return bounds to cut image by
+        )
+    cut by bounds ->
+    find the next biggest rectangle in image - Inner ->( #Currently gets skipped and we apply a simple cut instead.
+        apply modifications to the base image to make it easier to find the rectangle ->
+        use edges to construct a rectangle ->
+        return bounds to cut image by
+        )
+    cut by bounds ->
+    write to file
+    )
+write info about the process to info.json in the output-folder -> # Info.json can be used for georeferencing uncut map images, and also debugging. 
+completed.
+
+"""
+
 ## TODO:
-## Check ratio of image-cut, it should be close to 1:1
-## Change blur/edge-detection for the different map-types(colors)
-## Add recursion/better error handling if the image isnt up to scruff.
 ## Add way to specify the amount of blur or multiple runs with different amounts of blur.
 
 ## when in doubt change the blur - xx
-
 
 def get_dominant_color(image_path):
     """
@@ -58,18 +92,21 @@ def get_dominant_color(image_path):
     dominant = tuple(dominant_color)
     # print(f"Dominant color (RGB): {dominant[0]},{dominant[1]},{dominant[2]}")
     color = ""
-    if dominant[0] > 200 and dominant[1] > 180:
+    if dominant[0] > 200 and dominant[1] > 180: # Rgb numbers to identify what type of map is being handled.
         #    print("pink dominant")
         color = "Pink"
-        global_colors.append("Pink")
+        global_colors.append("Pink")    # Pink is used when the whole map has a white/pink background and there is a need for a different type of blur
+                                        # Example: Kopparberg 7/3_12E3g
     elif 170 < dominant[0] < 200 and dominant[1] < 200:
         #    print("green dominant")
         color = "Green"
-        global_colors.append("Green")
+        global_colors.append("Green")   # Green is used when the outside background could be white, yellow or pinkish but the dominant inside color is green
+                                        # Example: Kopparberg 7/10_12E5a
     elif 140 < dominant[0] < 180 and 140 < dominant[1] < 200:
         #    print("darker green dominant")
         color = "Dark green"
-        global_colors.append("Dark green")
+        global_colors.append("Dark green")  # Dark green is the same as Green but for darker maps, them being darker not always green is the main thing. This was needed separation.
+                                            # Example: Norrbotten 3/2_26M2d
     else:
         print("unknown color range, check image")
         print(f"Dominant color (RGB): {dominant[0]},{dominant[1]},{dominant[2]}")
@@ -103,6 +140,7 @@ def find_largest_rectangle(
         if (h < 2000 or w < 2000) or not (
             0.95 < (h / w) < 1.05
         ):  # 4000px for tif, 2000px for jpg. Look if 1:1
+            # This is used to check the ratio of the rectangle. If the ratio isnt close to 1:1 its not a good rectangle since the "ekonomiska kartan" has almost perfect squares.
             cv2.rectangle(image2, (x, y), (x + w, y + h), (0, 255, 0), 3)
             # cv2.imwrite(OUTPUT_FOLDER + f"\\others\\rect-{image_name}.jpg", image2)
             # print(f"No outer rectangle found for {image_name}")
@@ -131,12 +169,24 @@ def detect_outer_frame(
     """
     # Convert to grayscale
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    # This is used to apply different types of blur to reduce the noise of the image to make it easier to find the edges.
+    # This also makes the process easier on the cpu which has to work less cycles if the image is less complex.
+    # That does not always work well tho, so fiddling with the settings here when debugging is useful to get a different result.
+    # I would think it useful to find more types of ways to change the image here is a way forward with this script. 
+    # The same thing can be done when detecting the inner frame as well.
+    #
+    # The values here are arbitrary and are used since they produce good results with most of the currently processed maps.
+    # Edit these to your hearts content 
+    #   cv2.blur
+    #   cv2.GaussianBlur
+    #   cv2.HoughLinesP(minLineLength=x, maxLineGap=z)
     if image_color == "Pink":
         # TODO :
         # edit this so that images with pink background get cut correctly.
-        # maybe use another techinque
+        # maybe use another technique
         # blur level matters allllot
-        # implement different levels of it and checks if the image is likley the wrong size, if it is change the blur level.
+        # implement different levels of it and checks if the image is likely the wrong size, if it is change the blur level.
         # the inner frame seems to like more blur, the outer less.
 
         # Apply slight blur to reduce noise
@@ -433,6 +483,9 @@ def crop_map_image(
             # )
             return 3
         elif corners_inner == 1:
+            # Simple cut
+            # This is the currently best and most consistent way to perform the inner cut.
+            # Since all the "ekonomiska kartor" I've seen keep the same distance between the outer rect and the inner, this becomes consistent.
             print("Applying simple cut")
             print("")
             x_min, y_min, x_max, y_max = corners
