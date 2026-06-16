@@ -7,8 +7,31 @@ INPUT_FOLDER = sys.argv[1]
 OUTPUT_FOLDER = sys.argv[2]
 JSON_OUTPUT = []  # append per action taken for each image
 
+"""
+Used to compress jpeg/jpg maps to a set quality or 10 if none is specified.
+The workflow from start to finish
+cutmaps -> georeference (-> compressmaps) # Compressmaps is used if more compression of the files are needed.
 
-def compress_images_batch(input_dir, output_dir, quality=85, max_width=None):
+Usage:
+    python3 compressmaps input-folder output-folder (quality 1-100)
+
+Where input-folder contains the images of maps
+and output-folder is where to put them.    
+
+The workflow of this file is:
+
+Start -> 
+Read what image should be modified from input-folder ->
+loop through one image at a time ->loop(
+    apply quality to image ->
+    write to file
+    )
+completed.
+
+"""
+
+
+def compress_images_batch(input_dir, output_dir, quality=10, max_width=None):
     """Compress all JPGs with progress tracking."""
 
     Path(output_dir).mkdir(parents=True, exist_ok=True)
