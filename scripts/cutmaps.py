@@ -34,7 +34,7 @@ The workflow of this file is:
 Start -> 
 Read what image should be modified from input-folder ->
 loop through one image at a time ->loop(
-    get dominant color from image, used for understanding what type of map it is ->
+    get dominant color from image, used for understanding what type of modifications to use ->
     find biggest rectangle in image - Outer ->(
         apply modifications to the base image to make it easier to find the rectangle ->
         look for rectangles straight up OR use edges to construct them if no explicit rectangles has been found ->

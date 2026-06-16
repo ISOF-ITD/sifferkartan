@@ -10,6 +10,18 @@ MIN_DISTANCE = 20
 # --- NY KONSTANT ---
 MIN_SIZE = 8  # Blobs mindre än 4px i bredd eller höjd ignoreras
 
+"""
+The start of a script used to locate and identify handwriting
+
+Currently looks for the color red, creates a mask of where that red is.
+The output is a black and white image of the handwriting.
+
+Usage:
+    python3 find-handwriting image-in
+
+the output-file will be saved to image-in.haiku3.output.png
+
+"""
 
 def main():
     print("image recoloring")
