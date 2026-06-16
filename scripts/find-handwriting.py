@@ -11,10 +11,13 @@ MIN_DISTANCE = 20
 MIN_SIZE = 8  # Blobs mindre än 4px i bredd eller höjd ignoreras
 
 """
-The start of a script used to locate and identify handwriting
+The start of a script used to locate and identify handwriting, "Ortnamn".
 
 Currently looks for the color red, creates a mask of where that red is.
-The output is a black and white image of the handwriting.
+    Tested on "ekonomiska kartor" which in many cases contains red numbers placed as "Ortnamn" which is what this was written to search for.
+    Has not been tested with maps that contain the color red normally, would probably not work for these.
+
+The output is a black and white image of the handwriting, since this is usually easier for ai-detection.
 
 Usage:
     python3 find-handwriting image-in

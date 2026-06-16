@@ -1,6 +1,13 @@
 from pathlib import Path
 import sys
 
+"""
+Way to change name of multiple files at once.
+
+Usage:
+    python3 batch_rename folder-in folder-out
+"""
+
 def main():
     if len(sys.argv) < 3:
         print("Usage: python program input-folder output-folder")
