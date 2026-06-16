@@ -12,11 +12,33 @@ JSON_OUTPUT = []  # append per action taken for each image
 JSON_MAP_INFO = ""
 RUN_MODE = 0
 
-## TODO:
-## Mappstruktur ska behållas. Skapa mappnamnet för de kartor som behandlas.
-## Titta även på att läsa från undermappar vid inläsning av map-out
-## Namnen ska ändras till ***_modified_auto.tiff eller nått sånt.
 
+"""
+This file's use case is to georeference maps. Its focus is "ekonomiska kartbilder" and currently only handles these.
+The workflow from start to finish with these files are
+cutmaps -> georeference (-> compressmaps) # Compressmaps is used if more compression of the files are needed.
+
+2 possible usages of this file:
+    python3 georeference input-folder output-folder geojson
+    python3 georeference input-folder output-folder geojson info.json
+
+Where input-folder contains the images of maps
+and output-folder is where to put them.
+geojson is a path to the file containing the coordinates for the map-type.
+info.json is the output-json from cutmaps and used when georeferencing uncut maps.
+
+The workflow of this file is:
+
+Start -> 
+Read what image should be modified from input-folder ->
+Read geodata ->
+loop through one image at a time ->loop(
+    apply geodata to the image ->
+    write to file
+    )
+completed.
+
+"""
 
 def main():
     if len(sys.argv) < 4:
@@ -36,8 +58,6 @@ def main():
         sys.argv[3],
     )
     batch_process_maps(INPUT_FOLDER, OUTPUT_FOLDER, JSON_GEOREFERENCE)
-    # with open(OUTPUT_FOLDER+'\\geotiff-info.json', 'w') as f:
-    #    json.dump(JSON_OUTPUT, f, indent=4)
 
 
 def batch_process_maps(
@@ -109,7 +129,7 @@ def process_original(tif_path, geo_info, map_info, kartbladsid, output_path):
     """
 
     coords_geo_info = None
-    just_kartbladsid = re.search(r"([A-Za-z0-9]{4,5})", kartbladsid).group(1)
+    just_kartbladsid = re.search(r"([A-Za-z0-9]{4,5})", kartbladsid).group(1) # way to match "ekonomiska kartor" through their id. Would need another way for other types of maps.
 
     for feat in geo_info["features"]:
         if just_kartbladsid in feat["properties"]["kartbladsid"]:
@@ -216,7 +236,7 @@ def process_tif(tif_path, geo_info, kartbladsid, output_path):
 
     # Find the feature matching the kartbladsid
     coords = None
-    just_kartbladsid = re.search(r"([A-Za-z0-9]{4,5})", kartbladsid).group(1)
+    just_kartbladsid = re.search(r"([A-Za-z0-9]{4,5})", kartbladsid).group(1)  # way to match "ekonomiska kartor" through their id. Would need another way for other types of maps.
 
     #for feat in geo_info["features"]:
     #    if just_kartbladsid in feat["properties"]["kartbladsid"]:
