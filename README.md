@@ -22,6 +22,8 @@ Generell användning
 | find-handwriting.py | Ett test att automatiskt hitta siffror på kartor, i dagsläget hittar den endast röda siffror |
 | georeference.py | Automatisk referering av alla kartor i input-folder, kan användas för ekonomiska kartor men troligen andra också vid lite omskrivning. | 
 
+Under /scripts/identify_handwriting_ai ligger ett antal skript som genererades av ai med viss del av manuell ändring. Dessa användes på olika sätt för att lokalisera och identifiera påskrivna siffror på kartorna, något som alla dessa hanterade olika bra men inget skript hade mer än en 20% "hit rate". Inkluderas då det önskades av Per.
+
 # Resultat
 Exempel för hur det kan bli när man beskär en karta.
 
