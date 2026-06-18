@@ -1,6 +1,8 @@
-gdal==3.12.2
+gdal==3.8.2
 numpy==2.4.4
 opencv_contrib_python==4.10.0.84
 opencv_python==4.11.0.86
 opencv_python_headless==4.10.0.84
 Pillow==12.2.0
+# För alla scout - scout-idenitfy3.py fungerar bäst:
+pytesseract==0.3.13

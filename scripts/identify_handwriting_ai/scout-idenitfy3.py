@@ -12,6 +12,8 @@ import sys
 IMAGE_PATH = sys.argv[1]  # t.ex. C:\Karta\my_map.tif
 
 """
+sudo apt install tesseract-ocr
+
 Använder tesseractOCR och pytesseract for att undersöka bilden och leta handskriven text
 
 Försök 3
@@ -39,7 +41,7 @@ def main():
     mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
     thresh = cv2.bitwise_or(mask1, mask2)
 
-    cv2.imwrite('results\\' + IMAGE_PATH + 'thresh.output.png', thresh)
+    cv2.imwrite(IMAGE_PATH + 'thresh.output.png', thresh)
     
     # Använd Tesseract-OCR för att läsa ut text från bilden
     custom_config = r'--oem 3 --psm 6 -c tessedit_char_whitelist="0123456789"'
@@ -61,7 +63,7 @@ def main():
     
     # Skriv ut resultatet till en JSON-fil
     print("writes json")
-    with open('results\\' + IMAGE_PATH + 'sc-ident.json', 'w') as f:
+    with open(IMAGE_PATH + 'sc-ident.json', 'w') as f:
         json.dump(result, f, indent=4)
 
     # Skapa en ny bild med punkter på varje instans av de hittade nummerna
@@ -75,7 +77,7 @@ def main():
 
     # Spara den nya bilden
     print("writes image")
-    cv2.imwrite('results\\' + IMAGE_PATH + 'sc-ident.output.png', output_img)
+    cv2.imwrite(IMAGE_PATH + 'sc-ident.output.png', output_img)
 
 
 # Stänger av programmet om ingen bild specificeras
