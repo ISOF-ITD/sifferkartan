@@ -43,7 +43,7 @@ def main():
     # Convert to binary
     thresh = cv2.threshold(dilated, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
 
-    cv2.imwrite('results\\' + IMAGE_PATH + 'threshhaiku.output.png', thresh)
+    cv2.imwrite(IMAGE_PATH + 'threshhaiku.output.png', thresh)
     sys.exit(1)
     # Initialize EasyOCR reader for digits
     print("loading OCR model")
@@ -75,7 +75,7 @@ def main():
     
     # Write results to JSON
     print("writes json")
-    with open('results\\' + IMAGE_PATH + 'haiku.json', 'w') as f:
+    with open(IMAGE_PATH + 'haiku.json', 'w') as f:
         json.dump(result, f, indent=4)
 
     # Create output image with detected digits
@@ -88,7 +88,7 @@ def main():
                     1, (255, 255, 255), 2)
 
     print("writes image")
-    cv2.imwrite('results\\' + IMAGE_PATH + 'haiku.output.png', output_img)
+    cv2.imwrite(IMAGE_PATH + 'haiku.output.png', output_img)
 
 
 if __name__ == "__main__":

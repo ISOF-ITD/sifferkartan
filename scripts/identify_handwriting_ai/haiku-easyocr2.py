@@ -37,7 +37,7 @@ def main():
     eroded = cv2.erode(mask, kernel, iterations=1)
     thresh = cv2.dilate(eroded, kernel, iterations=1)
 
-    cv2.imwrite('results\\' + IMAGE_PATH + 'haiku3thresh.output.png', thresh)
+    cv2.imwrite(IMAGE_PATH + 'haiku3thresh.output.png', thresh)
     
     print("finding all regions")
     contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
@@ -80,7 +80,7 @@ def main():
             filtered_results.append(candidate)
 
     print("writes json")
-    with open('results\\' + IMAGE_PATH + 'haiku3.json', 'w') as f:
+    with open(IMAGE_PATH + 'haiku3.json', 'w') as f:
         json.dump(filtered_results, f, indent=4)
 
     output_img = img.copy()
@@ -88,7 +88,7 @@ def main():
         cv2.circle(output_img, (item['x'], item['y']), 8, (0, 255, 255), 3)
         
     print("writes image")
-    cv2.imwrite('results\\' + IMAGE_PATH + 'haiku3.output.png', output_img)
+    cv2.imwrite(IMAGE_PATH + 'haiku3.output.png', output_img)
     print(f"Found {len(filtered_results)} unique regions after filtering (Min size: {MIN_SIZE}px)")
 
 
